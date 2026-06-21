@@ -1,0 +1,33 @@
+# dependencies
+node_modules
+.pnpm-store
+.pnpm-home
+.tool-home
+.localappdata
+.appdata
+.cache
+.upload-worktree
+.upload-worktree-test
+.agents
+.codex
+
+# next
+.next
+out
+
+# env
+.env
+.env*.local
+
+# misc
+*.log
+.dev-server*.log
+.Rhistory
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# system
+.DS_Store
+Thumbs.db
