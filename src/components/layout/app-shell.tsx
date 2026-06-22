@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { LanguageToggle } from "@/components/layout/language-toggle";
-import { ButtonLink } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 
@@ -67,11 +66,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     : "text-muted hover:text-ink"
                 )}
               >
-                {t.addJob}
+                {t.analyzeJd}
               </Link>
             </nav>
             <LanguageToggle />
-            <ButtonLink href="/add">{t.addJob}</ButtonLink>
           </div>
         </div>
       </header>

@@ -17,6 +17,7 @@ The app helps students paste job descriptions, generate evidence-based AI analys
 - Filters for high-match jobs, jobs needing action, and approaching deadlines
 - Add Job workflow for source URL, pasted JD text, deadline, channel, contacts, interview date, notes, and follow-up notes
 - Editable candidate profile saved locally and used for AI match scoring
+- Resume upload on the Profile page to generate a candidate profile draft from `.docx` or text-based `.pdf` resumes
 - Evidence-based AI analysis with match score breakdown, JD evidence, candidate gaps, confidence levels, red flags, and positive signals
 - Recommended next action: apply now, tailor resume first, save for later, skip, or improve skills before applying
 - Skill gap analysis with matched skills, missing skills, required tools, resume keywords, learning actions, and missing-skill priority
@@ -33,6 +34,7 @@ The app helps students paste job descriptions, generate evidence-based AI analys
 - Tailwind CSS
 - Local storage persistence
 - OpenAI-compatible chat completions API abstraction
+- Resume text extraction with Mammoth for Word `.docx` files and pdf-parse for text-based PDFs
 - Lightweight custom table and dashboard visual blocks
 - Windows local-app launcher scripts for one-click local use
 
@@ -46,6 +48,16 @@ The app helps students paste job descriptions, generate evidence-based AI analys
 6. The job record is saved locally and opened on the detail page.
 
 The API key is only read on the server side. It is never exposed to browser code.
+
+## Resume-to-Profile Workflow
+
+1. The user opens the Profile page and uploads a `.docx` resume or a text-based `.pdf`.
+2. The server extracts plain text from the resume.
+3. The app sends the extracted text and current saved profile to `/api/analyze-resume`.
+4. The AI returns a candidate profile draft, bilingual summaries, extracted strengths, unclear information, and confidence level.
+5. The user reviews the draft and clicks `Apply to Profile` only if they want to save it locally.
+
+The original resume file is not saved by the app. Only the user-approved candidate profile is persisted in local storage. V1 does not support scanned PDFs or OCR.
 
 ## Candidate Profile Personalization
 
@@ -63,6 +75,8 @@ The Profile page stores local candidate preferences used in AI scoring:
 - Preferred industries
 - Preferred language
 - Career goals
+
+Users can also generate a draft profile from an uploaded resume and then manually edit it before saving.
 
 Default profile:
 
@@ -93,6 +107,7 @@ The score should increase when a role fits analytics, product operations, risk, 
 ## Cost Control Notes
 
 - AI output is requested as concise JSON only.
+- Resume text is shortened before AI analysis if it is very long.
 - The app caches analyses in local storage using the normalized JD and candidate profile.
 - Re-analyzing the same unchanged JD with the same profile reuses cached analysis.
 - The source URL is saved only as a reference; the app does not scrape protected job boards.
@@ -173,6 +188,7 @@ pnpm build
 - No browser extension
 - No scraping LinkedIn, Seek, Indeed, or other protected job boards
 - Source URLs are saved only as references
+- Uploaded resume files are used for one-time server-side text extraction and are not stored by the app
 - Persistence is local-first for this MVP
 - API keys must stay in `.env.local` and server-side environment variables only
 
@@ -180,6 +196,7 @@ pnpm build
 
 - CSV import and backup restore
 - Resume version tracking per job
+- OCR support for scanned PDF resumes
 - Calendar reminders for deadlines, follow-ups, and interviews
 - Optional SQLite or Supabase persistence
 - More robust AI JSON validation with schema tooling

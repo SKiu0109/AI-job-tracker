@@ -79,12 +79,16 @@ export function updateStoredJobStatus(
       ...job,
       application_status: status,
       updated_at: now,
-      status_history: statusChanged
-        ? [
-            createTimelineItem(status, now, note),
-            ...normalizeStatusHistory(job.status_history)
-          ]
-        : job.status_history
+      status_history:
+        statusChanged || note.trim()
+          ? createStatusHistorySnapshot(
+              job.status_history,
+              status,
+              now,
+              note,
+              job.created_at
+            )
+          : job.status_history
     });
   });
 
@@ -113,12 +117,16 @@ export function updateStoredJob(
       ...updates,
       application_status: nextStatus,
       updated_at: now,
-      status_history: statusChanged
-        ? [
-            createTimelineItem(nextStatus, now, statusNote),
-            ...normalizeStatusHistory(job.status_history)
-          ]
-        : job.status_history
+      status_history:
+        statusChanged || statusNote.trim()
+          ? createStatusHistorySnapshot(
+              job.status_history,
+              nextStatus,
+              now,
+              statusNote,
+              job.created_at
+            )
+          : job.status_history
     });
 
     updatedJob = nextJob;
@@ -204,6 +212,7 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
   const skills = asStringArray(job.skills);
   const tools = asStringArray(job.tools);
   const createdAt = asString(job.created_at, now);
+  const updatedAt = asString(job.updated_at, createdAt);
   const status = asApplicationStatus(job.application_status);
 
   return {
@@ -288,39 +297,105 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
     contact_person: job.contact_person || "",
     interview_date: job.interview_date || "",
     follow_up_notes: job.follow_up_notes || "",
-    status_history: normalizeStatusHistory(job.status_history, createdAt, status),
+    status_history: normalizeStatusHistory(
+      job.status_history,
+      createdAt,
+      status,
+      updatedAt
+    ),
     source_url: job.source_url || "",
     raw_jd: job.raw_jd || "",
     notes: job.notes || "",
     created_at: createdAt,
-    updated_at: asString(job.updated_at, createdAt)
+    updated_at: updatedAt
   };
 }
 
 function normalizeStatusHistory(
   history: StatusTimelineItem[] | undefined,
   createdAt?: string,
-  status?: ApplicationStatus
+  status?: ApplicationStatus,
+  updatedAt?: string
 ): StatusTimelineItem[] {
+  const currentStatus = status || "Not Applied";
+  const createdTime = createdAt || new Date().toISOString();
+  const updatedTime = updatedAt || createdTime;
+
   if (Array.isArray(history) && history.length > 0) {
-    return history
+    const normalizedItems = history
       .map((item) => ({
         id: item.id || createId(),
         status: item.status,
         created_at: item.created_at || new Date().toISOString(),
         note: item.note || ""
       }))
-      .filter((item) => item.status)
-      .sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      .filter((item) => item.status);
+
+    return compactStatusHistory(normalizedItems, currentStatus, createdTime, updatedTime);
   }
 
-  return createInitialStatusHistory(
-    createdAt || new Date().toISOString(),
-    status || "Not Applied"
+  return createInitialStatusHistory(createdTime, currentStatus);
+}
+
+function createStatusHistorySnapshot(
+  history: StatusTimelineItem[] | undefined,
+  status: ApplicationStatus,
+  changedAt: string,
+  note: string,
+  createdAt: string
+) {
+  const normalizedItems = normalizeStatusHistory(
+    history,
+    createdAt,
+    status,
+    changedAt
   );
+  const preservedItems = normalizedItems.filter(
+    (item) => item.status === "Job added" || item.note?.trim()
+  );
+
+  return sortStatusHistory([
+    createTimelineItem(status, changedAt, note),
+    ...preservedItems
+  ]);
+}
+
+function compactStatusHistory(
+  items: StatusTimelineItem[],
+  currentStatus: ApplicationStatus,
+  createdAt: string,
+  updatedAt: string
+) {
+  const notedStatusItems = items.filter(
+    (item) => item.status !== "Job added" && item.note?.trim()
+  );
+  const jobAddedItem =
+    items
+      .filter((item) => item.status === "Job added")
+      .sort((a, b) => getTime(a.created_at) - getTime(b.created_at))[0] ||
+    createTimelineItem("Job added", createdAt);
+  const hasCurrentStatusNote = notedStatusItems.some(
+    (item) => item.status === currentStatus
+  );
+  const currentStatusItem = hasCurrentStatusNote
+    ? []
+    : [
+        items.find(
+          (item) =>
+            item.status === currentStatus &&
+            !item.note?.trim()
+        ) || createTimelineItem(currentStatus, updatedAt)
+      ];
+
+  return sortStatusHistory([
+    ...currentStatusItem,
+    ...notedStatusItems,
+    jobAddedItem
+  ]);
+}
+
+function sortStatusHistory(items: StatusTimelineItem[]) {
+  return items.sort((a, b) => getTime(b.created_at) - getTime(a.created_at));
 }
 
 function normalizeMatchScoreBreakdown(
@@ -497,6 +572,11 @@ function asStringArray(value: unknown, fallback: string[] = []) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getTime(value: string) {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
 
 function defaultNextActionReason(matchScore: number, language: "en" | "zh") {

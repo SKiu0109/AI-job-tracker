@@ -181,3 +181,12 @@ export type CandidateProfile = {
   preferred_language: string;
   career_goals: string;
 };
+
+export type ResumeProfileAnalysis = {
+  candidate_profile: CandidateProfile;
+  profile_summary_en: string;
+  profile_summary_zh: string;
+  extracted_strengths: string[];
+  missing_or_unclear_information: string[];
+  confidence: ConfidenceLevel;
+};

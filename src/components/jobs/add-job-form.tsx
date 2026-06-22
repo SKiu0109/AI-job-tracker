@@ -259,7 +259,7 @@ export function AddJobForm({
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <Button type="submit" disabled={isAnalyzing} className="w-full sm:w-auto">
-            {isAnalyzing ? t.analyzing : t.analyzeJd}
+            {isAnalyzing ? t.analyzing : t.analyzeAndSaveJob}
           </Button>
         </div>
       </form>

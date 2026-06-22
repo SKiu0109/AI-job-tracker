@@ -1,8 +1,11 @@
 import { buildJobAnalysisMessages } from "@/lib/ai/job-analysis-prompt";
+import { buildResumeProfileMessages } from "@/lib/ai/resume-profile-prompt";
+import { normalizeCandidateProfile } from "@/lib/candidate-profile";
 import { clampScore } from "@/lib/utils";
 import {
   APPLICATION_RECOMMENDATIONS,
   ApplicationRecommendation,
+  CandidateProfile,
   CONFIDENCE_LEVELS,
   ConfidenceLevel,
   JobAnalysis,
@@ -14,6 +17,7 @@ import {
   PRIORITY_LEVELS,
   PriorityLevel,
   RecommendedNextAction,
+  ResumeProfileAnalysis,
   ScoreDimension,
   WORK_MODES,
   WorkMode
@@ -23,6 +27,11 @@ type AnalyzeJobInput = {
   rawJd: string;
   sourceUrl?: string;
   candidateProfile?: string;
+};
+
+type AnalyzeResumeProfileInput = {
+  resumeText: string;
+  currentProfile?: CandidateProfile;
 };
 
 type OpenAIChatResponse = {
@@ -38,6 +47,9 @@ type OpenAIChatResponse = {
 
 export interface AiProvider {
   analyzeJob(input: AnalyzeJobInput): Promise<JobAnalysis>;
+  analyzeResumeProfile(
+    input: AnalyzeResumeProfileInput
+  ): Promise<ResumeProfileAnalysis>;
 }
 
 export function getAiProvider(): AiProvider {
@@ -117,6 +129,48 @@ class ChatCompletionsJobAnalysisProvider implements AiProvider {
     }
 
     return normalizeJobAnalysis(parseJsonContent(content));
+  }
+
+  async analyzeResumeProfile(
+    input: AnalyzeResumeProfileInput
+  ): Promise<ResumeProfileAnalysis> {
+    if (!isConfiguredApiKey(this.config.apiKey)) {
+      throw new Error(`${this.config.apiKeyEnvName} is not configured.`);
+    }
+
+    const messages = buildResumeProfileMessages(input);
+    const body = {
+      model: this.config.model,
+      messages,
+      response_format: { type: "json_object" },
+      [this.config.maxTokensField]: 2200
+    };
+
+    const response = await fetch(this.config.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as OpenAIChatResponse;
+
+    if (!response.ok) {
+      throw new Error(
+        payload.error?.message ||
+          `${this.config.providerName} request failed with ${response.status}.`
+      );
+    }
+
+    const content = payload.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("AI response did not include JSON content.");
+    }
+
+    return normalizeResumeProfileAnalysis(parseJsonContent(content));
   }
 }
 
@@ -215,6 +269,21 @@ function normalizeJobAnalysis(value: Partial<JobAnalysis>): JobAnalysis {
     ai_summary_en: asString(value.ai_summary_en, "Not specified"),
     ai_summary_zh: asString(value.ai_summary_zh, "Not specified"),
     resume_keywords: asStringArray(value.resume_keywords)
+  };
+}
+
+function normalizeResumeProfileAnalysis(
+  value: Partial<ResumeProfileAnalysis>
+): ResumeProfileAnalysis {
+  return {
+    candidate_profile: normalizeCandidateProfile(value.candidate_profile),
+    profile_summary_en: asString(value.profile_summary_en, "Not specified"),
+    profile_summary_zh: asString(value.profile_summary_zh, "未注明"),
+    extracted_strengths: asStringArray(value.extracted_strengths),
+    missing_or_unclear_information: asStringArray(
+      value.missing_or_unclear_information
+    ),
+    confidence: asConfidenceLevel(value.confidence)
   };
 }
 
