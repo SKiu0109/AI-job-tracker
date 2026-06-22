@@ -8,6 +8,7 @@ node_modules
 .cache
 .upload-worktree
 .upload-worktree-test
+.github-sync-worktree
 .agents
 .codex
 

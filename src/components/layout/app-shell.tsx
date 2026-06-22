@@ -37,6 +37,28 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {t.jobList}
               </Link>
               <Link
+                href="/dashboard"
+                className={cn(
+                  "rounded px-3 py-1.5 text-sm font-medium transition",
+                  pathname === "/dashboard"
+                    ? "bg-white text-ink shadow-soft"
+                    : "text-muted hover:text-ink"
+                )}
+              >
+                {t.dashboard}
+              </Link>
+              <Link
+                href="/profile"
+                className={cn(
+                  "rounded px-3 py-1.5 text-sm font-medium transition",
+                  pathname === "/profile"
+                    ? "bg-white text-ink shadow-soft"
+                    : "text-muted hover:text-ink"
+                )}
+              >
+                {t.profile}
+              </Link>
+              <Link
                 href="/add"
                 className={cn(
                   "rounded px-3 py-1.5 text-sm font-medium transition",

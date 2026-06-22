@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         {
           code: "missing_api_key",
           error:
-            "AI analysis is not configured yet. Add OPENAI_API_KEY to .env.local and restart the dev server."
+            "AI analysis is not configured yet. Add the provider API key to .env.local and restart the dev server."
         },
         { status: 503 }
       );
@@ -71,6 +71,7 @@ export async function POST(request: Request) {
 function isMissingApiKeyError(error: unknown) {
   return (
     error instanceof Error &&
-    error.message.toLowerCase().includes("openai_api_key")
+    error.message.toLowerCase().includes("api_key") &&
+    error.message.toLowerCase().includes("not configured")
   );
 }

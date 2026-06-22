@@ -1,10 +1,7 @@
-export const DEFAULT_CANDIDATE_PROFILE = [
-  "Bachelor background in Statistics",
-  "Master direction: Business Analytics and FinTech",
-  "Interested in Data Analyst, Business Analyst, Product Operations, Risk Strategy, Consulting, and FinTech roles",
-  "Experience in consulting, quantitative research, questionnaire analysis, data cleaning, Excel, Python, SQL, and report writing",
-  "Chinese-speaking international student applying for English-speaking roles in Australia, Singapore, and China"
-].join("\n");
+import {
+  DEFAULT_CANDIDATE_PROFILE,
+  formatCandidateProfile
+} from "@/lib/candidate-profile";
 
 export function buildJobAnalysisMessages(input: {
   rawJd: string;
@@ -12,7 +9,8 @@ export function buildJobAnalysisMessages(input: {
   candidateProfile?: string;
 }) {
   const candidateProfile =
-    input.candidateProfile?.trim() || DEFAULT_CANDIDATE_PROFILE;
+    input.candidateProfile?.trim() ||
+    formatCandidateProfile(DEFAULT_CANDIDATE_PROFILE);
 
   const schema = `{
   "company": "string",
@@ -35,6 +33,54 @@ export function buildJobAnalysisMessages(input: {
   "nice_to_have_en": ["string"],
   "nice_to_have_zh": ["string"],
   "match_score": 0,
+  "match_score_breakdown": {
+    "education_fit": { "score": 0, "explanation_en": "string", "explanation_zh": "string", "evidence_from_jd": "string", "candidate_gap_en": "string", "candidate_gap_zh": "string", "confidence": "High | Medium | Low" },
+    "technical_skills_fit": { "score": 0, "explanation_en": "string", "explanation_zh": "string", "evidence_from_jd": "string", "candidate_gap_en": "string", "candidate_gap_zh": "string", "confidence": "High | Medium | Low" },
+    "business_communication_fit": { "score": 0, "explanation_en": "string", "explanation_zh": "string", "evidence_from_jd": "string", "candidate_gap_en": "string", "candidate_gap_zh": "string", "confidence": "High | Medium | Low" },
+    "experience_fit": { "score": 0, "explanation_en": "string", "explanation_zh": "string", "evidence_from_jd": "string", "candidate_gap_en": "string", "candidate_gap_zh": "string", "confidence": "High | Medium | Low" },
+    "career_direction_fit": { "score": 0, "explanation_en": "string", "explanation_zh": "string", "evidence_from_jd": "string", "candidate_gap_en": "string", "candidate_gap_zh": "string", "confidence": "High | Medium | Low" },
+    "location_fit": { "score": 0, "explanation_en": "string", "explanation_zh": "string", "evidence_from_jd": "string", "candidate_gap_en": "string", "candidate_gap_zh": "string", "confidence": "High | Medium | Low" }
+  },
+  "key_strengths_en": ["string"],
+  "key_strengths_zh": ["string"],
+  "main_gaps_en": ["string"],
+  "main_gaps_zh": ["string"],
+  "application_recommendation": "Strongly apply | Worth trying | Low priority | Not recommended",
+  "recommended_next_action": {
+    "action": "Apply now | Tailor resume first | Save for later | Skip | Improve skills before applying",
+    "reason_en": "string",
+    "reason_zh": "string",
+    "urgency": "High | Medium | Low",
+    "suggested_deadline": "string",
+    "resume_focus_points": ["string"]
+  },
+  "red_flags_en": ["string"],
+  "red_flags_zh": ["string"],
+  "positive_signals_en": ["string"],
+  "positive_signals_zh": ["string"],
+  "assumptions_en": ["string"],
+  "assumptions_zh": ["string"],
+  "missing_information_en": ["string"],
+  "missing_information_zh": ["string"],
+  "resume_tailoring_advice_en": ["string"],
+  "resume_tailoring_advice_zh": ["string"],
+  "skills_to_improve_en": ["string"],
+  "skills_to_improve_zh": ["string"],
+  "matched_skills": ["string"],
+  "missing_skills": ["string"],
+  "missing_skill_details": [
+    {
+      "skill": "string",
+      "priority": "High | Medium | Low",
+      "why_it_matters_en": "string",
+      "why_it_matters_zh": "string",
+      "impact_on_match_score": "string",
+      "suggested_resource_type": "project | short course | practice task | documentation | portfolio task"
+    }
+  ],
+  "important_tools": ["string"],
+  "suggested_learning_actions_en": ["string"],
+  "suggested_learning_actions_zh": ["string"],
   "ai_summary_en": "string",
   "ai_summary_zh": "string",
   "resume_keywords": ["string"]
@@ -54,6 +100,14 @@ export function buildJobAnalysisMessages(input: {
         "Always provide both English and Simplified Chinese fields where the schema asks for both.",
         "Keep resume_keywords mainly in English because they are intended for English resumes.",
         "Keep every summary and list concise.",
+        "For match_score_breakdown, each dimension score must be from 0 to 100 and explanations must be short.",
+        "For evidence_from_jd, quote or closely paraphrase concrete JD wording. If the JD is vague, say what is missing.",
+        "For candidate_gap, compare the JD against the candidate profile, not a generic candidate.",
+        "Confidence must be High, Medium, or Low depending on how clearly the JD supports the judgment.",
+        "Recommended next action must be exactly one of: Apply now, Tailor resume first, Save for later, Skip, Improve skills before applying.",
+        "For matched_skills, missing_skills, important_tools, and resume_keywords, keep terms mainly in English because they help English resumes and ATS matching.",
+        "For missing_skill_details, include why it matters, approximate impact on match, priority, and a learning resource type without external links.",
+        "Recommended application decision must be exactly one of: Strongly apply, Worth trying, Low priority, Not recommended.",
         "",
         "Candidate profile:",
         candidateProfile,

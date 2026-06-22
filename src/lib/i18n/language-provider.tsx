@@ -7,7 +7,16 @@ import {
   useState,
   type ReactNode
 } from "react";
-import { dictionary, Language, statusLabels } from "@/lib/i18n/dictionary";
+import {
+  confidenceLabels,
+  dictionary,
+  Language,
+  nextActionLabels,
+  priorityLabels,
+  recommendationLabels,
+  statusLabels,
+  timelineStatusLabels
+} from "@/lib/i18n/dictionary";
 import { LANGUAGE_COOKIE_KEY } from "@/lib/i18n/constants";
 
 type LanguageContextValue = {
@@ -15,6 +24,11 @@ type LanguageContextValue = {
   setLanguage: (language: Language) => void;
   t: (typeof dictionary)[Language];
   statuses: (typeof statusLabels)[Language];
+  timelineStatuses: (typeof timelineStatusLabels)[Language];
+  recommendations: (typeof recommendationLabels)[Language];
+  nextActions: (typeof nextActionLabels)[Language];
+  priorities: (typeof priorityLabels)[Language];
+  confidences: (typeof confidenceLabels)[Language];
 };
 
 const STORAGE_KEY = "ai-bilingual-job-tracker.language";
@@ -41,7 +55,12 @@ export function LanguageProvider({
       language,
       setLanguage,
       t: dictionary[language],
-      statuses: statusLabels[language]
+      statuses: statusLabels[language],
+      timelineStatuses: timelineStatusLabels[language],
+      recommendations: recommendationLabels[language],
+      nextActions: nextActionLabels[language],
+      priorities: priorityLabels[language],
+      confidences: confidenceLabels[language]
     }),
     [language]
   );

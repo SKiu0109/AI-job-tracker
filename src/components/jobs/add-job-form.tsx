@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/form-controls";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { SAMPLE_JD, SAMPLE_SOURCE_URL } from "@/lib/sample-jd";
+import { formatCandidateProfile } from "@/lib/candidate-profile";
 import {
   createAnalysisCacheKey,
+  createInitialStatusHistory,
   readCachedAnalysis,
   saveJob,
   writeCachedAnalysis
 } from "@/lib/storage/jobs";
+import { loadCandidateProfile } from "@/lib/storage/candidate-profile";
 import { JobAnalysis, JobRecord } from "@/types/job";
 
 type AnalyzeResponse = {
@@ -32,8 +35,13 @@ export function AddJobForm({
   const router = useRouter();
   const { t } = useLanguage();
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl);
+  const [deadline, setDeadline] = useState("");
+  const [applicationChannel, setApplicationChannel] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [interviewDate, setInterviewDate] = useState("");
   const [rawJd, setRawJd] = useState(initialRawJd);
   const [notes, setNotes] = useState("");
+  const [followUpNotes, setFollowUpNotes] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState(samplePrefilled ? t.sampleLoaded : "");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -55,12 +63,23 @@ export function AddJobForm({
       return;
     }
 
-    const cacheKey = createAnalysisCacheKey(rawJd);
+    const candidateProfileText = formatCandidateProfile(loadCandidateProfile());
+    const cacheKey = createAnalysisCacheKey(rawJd, candidateProfileText);
     const cachedAnalysis = readCachedAnalysis(cacheKey);
 
     if (cachedAnalysis) {
       setInfo(t.analysisCached);
-      const job = createJobRecord(cachedAnalysis, sourceUrl, rawJd, notes);
+      const job = createJobRecord({
+        analysis: cachedAnalysis,
+        sourceUrl,
+        rawJd,
+        notes,
+        deadline,
+        applicationChannel,
+        contactPerson,
+        interviewDate,
+        followUpNotes
+      });
       saveJob(job);
       router.push(`/jobs/${job.id}`);
       return;
@@ -76,7 +95,8 @@ export function AddJobForm({
         },
         body: JSON.stringify({
           source_url: sourceUrl.trim() || undefined,
-          raw_jd: rawJd
+          raw_jd: rawJd,
+          candidate_profile: candidateProfileText
         })
       });
 
@@ -91,7 +111,17 @@ export function AddJobForm({
       }
 
       writeCachedAnalysis(cacheKey, payload.analysis);
-      const job = createJobRecord(payload.analysis, sourceUrl, rawJd, notes);
+      const job = createJobRecord({
+        analysis: payload.analysis,
+        sourceUrl,
+        rawJd,
+        notes,
+        deadline,
+        applicationChannel,
+        contactPerson,
+        interviewDate,
+        followUpNotes
+      });
       saveJob(job);
       router.push(`/jobs/${job.id}`);
     } catch (submitError) {
@@ -125,6 +155,50 @@ export function AddJobForm({
           />
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="deadline">{t.deadline}</Label>
+            <Input
+              id="deadline"
+              type="date"
+              value={deadline}
+              onChange={(event) => setDeadline(event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="interview-date">{t.interviewDate}</Label>
+            <Input
+              id="interview-date"
+              type="datetime-local"
+              value={interviewDate}
+              onChange={(event) => setInterviewDate(event.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="application-channel">{t.applicationChannel}</Label>
+            <Input
+              id="application-channel"
+              value={applicationChannel}
+              onChange={(event) => setApplicationChannel(event.target.value)}
+              placeholder={t.applicationChannelPlaceholder}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contact-person">{t.contactPerson}</Label>
+            <Input
+              id="contact-person"
+              value={contactPerson}
+              onChange={(event) => setContactPerson(event.target.value)}
+              placeholder={t.contactPersonPlaceholder}
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <Label htmlFor="raw-jd">{t.rawJd}</Label>
@@ -146,6 +220,17 @@ export function AddJobForm({
             placeholder={t.rawJdPlaceholder}
             rows={14}
             required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="follow-up-notes">{t.followUpNotes}</Label>
+          <Textarea
+            id="follow-up-notes"
+            value={followUpNotes}
+            onChange={(event) => setFollowUpNotes(event.target.value)}
+            placeholder={t.followUpNotesPlaceholder}
+            rows={4}
           />
         </div>
 
@@ -182,18 +267,39 @@ export function AddJobForm({
   );
 }
 
-function createJobRecord(
-  analysis: JobAnalysis,
-  sourceUrl: string,
-  rawJd: string,
-  notes: string
-): JobRecord {
+function createJobRecord({
+  analysis,
+  sourceUrl,
+  rawJd,
+  notes,
+  deadline,
+  applicationChannel,
+  contactPerson,
+  interviewDate,
+  followUpNotes
+}: {
+  analysis: JobAnalysis;
+  sourceUrl: string;
+  rawJd: string;
+  notes: string;
+  deadline: string;
+  applicationChannel: string;
+  contactPerson: string;
+  interviewDate: string;
+  followUpNotes: string;
+}): JobRecord {
   const now = new Date().toISOString();
 
   return {
     ...analysis,
     id: createId(),
     application_status: "Not Applied",
+    application_deadline: deadline,
+    application_channel: applicationChannel.trim(),
+    contact_person: contactPerson.trim(),
+    interview_date: interviewDate,
+    follow_up_notes: followUpNotes.trim(),
+    status_history: createInitialStatusHistory(now),
     source_url: sourceUrl.trim(),
     raw_jd: rawJd,
     notes: notes.trim(),

@@ -1,34 +1,116 @@
-# AI Bilingual Job Application Tracker
+# AI Bilingual Job Search Analytics Platform
 
-A local-first Next.js app for Chinese-speaking international students to paste job descriptions, generate bilingual AI analysis, and manage applications in a spreadsheet-style tracker.
+A local-first AI job application management platform for Chinese-speaking international students applying for English-speaking roles in Australia, Singapore, and China.
 
-## Features
+The app helps students paste job descriptions, generate evidence-based AI analysis, decide which jobs are worth applying to, understand skill gaps, tailor resumes, and manage applications in a spreadsheet-style tracker.
 
-- Job tracker table with search, filters, match-score sorting, and inline status updates
-- Add Job page for source URL, pasted JD text, notes, and AI analysis
-- Job detail page with English and Simplified Chinese AI fields
-- English / 中文 UI toggle
-- Browser local storage persistence for V1
-- Server-only AI provider abstraction with OpenAI as the first provider
-- Client-side analysis cache to avoid repeated calls for the same unchanged JD
+## Target Users
 
-## Requirements
+- Chinese-speaking international students applying for analyst, consulting, product operations, risk, FinTech, and business roles
+- Early-career candidates who need to compare job fit and tailor English resumes
+- Portfolio reviewers who want to evaluate a practical local-first AI product workflow
 
-- Node.js 20+
-- pnpm
-- OpenAI API key
+## Key Features
 
-## Environment Variables
+- Spreadsheet-style job tracker with search, filters, sorting, clickable rows, row hover states, and status updates
+- Multi-select jobs, batch status update, batch delete with confirmation, and CSV export
+- Filters for high-match jobs, jobs needing action, and approaching deadlines
+- Add Job workflow for source URL, pasted JD text, deadline, channel, contacts, interview date, notes, and follow-up notes
+- Editable candidate profile saved locally and used for AI match scoring
+- Evidence-based AI analysis with match score breakdown, JD evidence, candidate gaps, confidence levels, red flags, and positive signals
+- Recommended next action: apply now, tailor resume first, save for later, skip, or improve skills before applying
+- Skill gap analysis with matched skills, missing skills, required tools, resume keywords, learning actions, and missing-skill priority
+- Decision-focused job detail page with status timeline, notes, requirements, responsibilities, and collapsed raw JD text
+- Dashboard analytics for application funnel, role types, average match by role, top skills, missing skills, tools, regions, and high-priority jobs
+- English / Simplified Chinese UI toggle with static translation dictionaries
+- Demo sample data for review without calling the AI API
+- Server-only AI provider abstraction for OpenAI-compatible providers including OpenAI and DeepSeek
 
-Create `.env.local` in the project root:
+## Tech Stack
 
-```bash
-OPENAI_API_KEY=your_openai_api_key_here
-AI_PROVIDER=openai
-AI_MODEL=gpt-5-mini
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Local storage persistence
+- OpenAI-compatible chat completions API abstraction
+- Lightweight custom table and dashboard visual blocks
+- Windows local-app launcher scripts for one-click local use
+
+## AI Analysis Workflow
+
+1. The user pastes a job description on the Add Job page.
+2. The frontend loads the saved candidate profile from local storage.
+3. The app sends the JD, source URL reference, and candidate profile to `/api/analyze-job`.
+4. The server-side provider calls the configured AI model and asks for JSON-only output.
+5. The response is normalized for backward compatibility with older saved jobs.
+6. The job record is saved locally and opened on the detail page.
+
+The API key is only read on the server side. It is never exposed to browser code.
+
+## Candidate Profile Personalization
+
+The Profile page stores local candidate preferences used in AI scoring:
+
+- Target regions
+- Target roles
+- Education background
+- Degree direction
+- Technical skills
+- Business skills
+- Tools
+- Work experience
+- Work rights / visa status
+- Preferred industries
+- Preferred language
+- Career goals
+
+Default profile:
+
+- Chinese-speaking international student
+- Bachelor background in Statistics
+- Master direction in Business Analytics and FinTech
+- Target regions: Australia, Singapore, China
+- Target roles: Data Analyst, Business Analyst, Product Operations, Risk Strategy, Consulting, FinTech
+- Skills: SQL, Python, Excel, Power BI, data analysis, report writing, questionnaire analysis, consulting research
+- Experience: FMCG quantitative research, consulting project work, transcript cleaning, insight memo writing
+- Work rights: international student
+
+## Match Scoring Logic
+
+The AI returns a 0-100 match score and six dimensions:
+
+- Education fit
+- Technical skills fit
+- Business / communication fit
+- Experience fit
+- Career direction fit
+- Location / international student suitability
+
+Each dimension includes a score, explanation, evidence from the JD, candidate gap, and confidence level.
+
+The score should increase when a role fits analytics, product operations, risk, consulting, FinTech, or early-career business roles. It should decrease when the JD requires many years of experience, missing work rights, unclear sponsorship fit, or skills far outside the profile.
+
+## Cost Control Notes
+
+- AI output is requested as concise JSON only.
+- The app caches analyses in local storage using the normalized JD and candidate profile.
+- Re-analyzing the same unchanged JD with the same profile reuses cached analysis.
+- The source URL is saved only as a reference; the app does not scrape protected job boards.
+- Future server-side caching can be added in `/api/analyze-job`.
+
+## Demo Mode and Sample Data
+
+The app can be reviewed without an API key:
+
+1. Open the tracker.
+2. Click `Load sample data`.
+3. Review the dashboard, table, detail page, profile page, edit flow, filters, batch actions, export, and timeline.
+
+You can also test the Add Job workflow with:
+
+```text
+samples/sample-jd.txt
 ```
-
-`AI_PROVIDER` defaults to `openai`. `AI_MODEL` defaults to `gpt-5-mini` and can be replaced with another compatible model.
 
 ## Run Locally
 
@@ -39,17 +121,43 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-On this Windows Codex desktop workspace, you can also run:
+## Windows Local Launcher
 
-```bat
-start-dev-windows.cmd
+For day-to-day local use on Windows, double-click:
+
+```text
+open-job-tracker-windows.vbs
 ```
 
-Keep that terminal window open while using the app.
+This starts the local Next.js server quietly in the background and opens [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## Test With a Sample JD
+When finished, double-click:
 
-Use `samples/sample-jd.txt` as a quick pasted job description.
+```text
+stop-job-tracker-windows.vbs
+```
+
+Launcher logs are stored in `.localappdata`, which is ignored by Git.
+
+## Environment Variables
+
+Create `.env.local` in the project root. Never commit this file.
+
+OpenAI example:
+
+```bash
+AI_PROVIDER=openai
+AI_MODEL=gpt-5-mini
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+DeepSeek example:
+
+```bash
+AI_PROVIDER=deepseek
+AI_MODEL=deepseek-chat
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+```
 
 ## Useful Commands
 
@@ -58,9 +166,22 @@ pnpm lint
 pnpm build
 ```
 
-## Notes
+## Product Constraints
 
-- No login, payment, browser extension, or job-board scraping is included in V1.
-- Source URL is stored only as a reference.
-- Jobs are stored in browser local storage, so data stays on the current device/browser.
-- API keys are only read in the server API route and are not exposed to frontend code.
+- No login
+- No payment
+- No browser extension
+- No scraping LinkedIn, Seek, Indeed, or other protected job boards
+- Source URLs are saved only as references
+- Persistence is local-first for this MVP
+- API keys must stay in `.env.local` and server-side environment variables only
+
+## Roadmap
+
+- CSV import and backup restore
+- Resume version tracking per job
+- Calendar reminders for deadlines, follow-ups, and interviews
+- Optional SQLite or Supabase persistence
+- More robust AI JSON validation with schema tooling
+- Deployment-ready demo mode with seeded non-sensitive data
+- Resume tailoring workspace and cover letter draft helper
