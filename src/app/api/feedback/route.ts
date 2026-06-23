@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const guestSession = getOrCreateGuestSession(
     request.cookies.get(GUEST_ID_COOKIE)?.value
   );
-  const feedback = getProductValidationService().createFeedback(
+  const feedback = await getProductValidationService().createFeedback(
     guestSession.guestId,
     {
       ...payload,

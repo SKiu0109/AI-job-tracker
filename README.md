@@ -214,14 +214,17 @@ Current implementation:
 - `/api/feedback` validates submissions server-side and records them through a product validation service abstraction.
 - `/api/product-events` accepts lightweight product events for key actions such as loading demo data, clicking Analyze JD, exporting CSV, opening job details, and saving analyzed jobs.
 - Client-side event tracking is fire-and-forget. If the request fails, recent events are queued in local storage so the product flow is not blocked.
+- If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, feedback and product events are written to Supabase through the server-only REST API.
+- If Supabase is not configured, or a Supabase write fails, the app falls back to the in-memory validation store so the public demo remains usable.
 
 Current limitation:
 
-- Feedback and product events use an in-memory mock store and server logs. This is useful for local validation and implementation shape, but it is not durable on Vercel serverless infrastructure.
+- The fallback in-memory validation store is useful for local validation and implementation shape, but it is not durable on Vercel serverless infrastructure.
 
-Recommended production upgrade:
+Optional Supabase setup:
 
-- Add Supabase tables for `product_events` and `feedback`.
+- Run `supabase/validation-mvp.sql` in the Supabase SQL editor.
+- Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as server-only Vercel environment variables.
 - Store anonymous `guest_id`, event name, path, language, timestamp, and safe event properties.
 - Keep feedback free of private resume content and avoid storing sensitive personal details.
 - Add an admin-only export or dashboard after enough early feedback exists.
@@ -309,6 +312,15 @@ AI_MODEL=gpt-5-mini
 # Leave OPENAI_API_KEY and DEEPSEEK_API_KEY unset
 ```
 
+Optional for persistent validation feedback and product events:
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+```
+
+Before setting these variables, run `supabase/validation-mvp.sql` in the Supabase SQL editor. `SUPABASE_SERVICE_ROLE_KEY` must remain server-only and must never be prefixed with `NEXT_PUBLIC_`.
+
 ## Useful Commands
 
 ```bash
@@ -331,7 +343,7 @@ pnpm build
 
 ## Roadmap
 
-- Supabase persistence
+- Supabase persistence for feedback, product events, jobs, candidate profile, analysis cache, and guest credits
 - Login system
 - Persistent guest credits
 - Resume tailoring workspace
