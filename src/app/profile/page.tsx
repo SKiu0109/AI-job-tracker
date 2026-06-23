@@ -144,7 +144,11 @@ export default function CandidateProfilePage() {
   };
 
   if (!profile) {
-    return <div className="rounded-md border border-line bg-white p-6">{t.analyzing}</div>;
+    return (
+      <div className="rounded-panel border border-line bg-white p-6 shadow-soft">
+        {t.analyzing}
+      </div>
+    );
   }
 
   return (
@@ -155,12 +159,12 @@ export default function CandidateProfilePage() {
       </div>
 
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        <div className="rounded-app border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
           {message}
         </div>
       ) : null}
 
-      <section className="space-y-4 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <section className="space-y-4 rounded-panel border border-line bg-white p-4 shadow-soft sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">
@@ -191,13 +195,13 @@ export default function CandidateProfilePage() {
         </div>
 
         {resumeError ? (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="rounded-app border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {resumeError}
           </div>
         ) : null}
 
         {resumeAnalysis ? (
-          <div className="space-y-4 rounded-md border border-line bg-canvas p-4">
+          <div className="space-y-4 rounded-panel border border-line bg-surface-muted p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-base font-semibold text-ink">
@@ -212,7 +216,7 @@ export default function CandidateProfilePage() {
               </Badge>
             </div>
 
-            <div className="rounded-md border border-line bg-white p-3">
+            <div className="rounded-panel border border-line bg-white p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                 {t.profileSummary}
               </p>
@@ -238,7 +242,7 @@ export default function CandidateProfilePage() {
               {PROFILE_FIELDS.map((field) => (
                 <div
                   key={field}
-                  className="rounded-md border border-line bg-white p-3"
+                  className="rounded-panel border border-line bg-white p-3"
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                     {getProfileFieldLabel(field, t)}
@@ -251,13 +255,13 @@ export default function CandidateProfilePage() {
             </div>
 
             {resumeWasTruncated ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-app border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 {t.resumeWasTruncated}
               </div>
             ) : null}
 
             {resumePreview ? (
-              <details className="rounded-md border border-line bg-white p-3">
+              <details className="rounded-panel border border-line bg-white p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-ink">
                   {t.resumeTextPreview}
                 </summary>
@@ -278,7 +282,7 @@ export default function CandidateProfilePage() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+        className="space-y-5 rounded-panel border border-line bg-white p-4 shadow-soft sm:p-5"
       >
         <div className="grid gap-4 lg:grid-cols-2">
           {PROFILE_FIELDS.map((field) => (
@@ -305,7 +309,7 @@ export default function CandidateProfilePage() {
 
 function ListPanel({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-md border border-line bg-white p-3">
+    <div className="rounded-panel border border-line bg-white p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted">
         {title}
       </p>

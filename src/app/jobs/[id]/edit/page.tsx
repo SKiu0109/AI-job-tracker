@@ -119,12 +119,16 @@ export default function EditJobPage() {
   };
 
   if (!isLoaded) {
-    return <div className="rounded-md border border-line bg-white p-6">{t.analyzing}</div>;
+    return (
+      <div className="rounded-panel border border-line bg-white p-6 shadow-soft">
+        {t.analyzing}
+      </div>
+    );
   }
 
   if (!job) {
     return (
-      <div className="rounded-md border border-line bg-white p-8 text-center shadow-soft">
+      <div className="rounded-panel border border-line bg-white p-8 text-center shadow-panel">
         <h1 className="text-xl font-semibold text-ink">{t.notFound}</h1>
         <p className="mt-2 text-sm text-muted">{t.notFoundBody}</p>
         <ButtonLink href="/" className="mt-5">
@@ -157,7 +161,7 @@ export default function EditJobPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+        className="space-y-5 rounded-panel border border-line bg-white p-4 shadow-soft sm:p-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t.company}>

@@ -23,15 +23,15 @@ export function LanguageToggle() {
   };
 
   return (
-    <div className="inline-flex rounded-md border border-line bg-white p-1">
+    <div className="inline-flex rounded-app border border-line bg-surface-muted p-1 shadow-soft">
       <a
         href={languageHref("en")}
         onClick={(event) => handleLanguageClick(event, "en")}
         className={cn(
-          "rounded px-3 py-1.5 text-sm font-medium transition",
+          "rounded-md px-3 py-1.5 text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
           language === "en"
             ? "bg-accent text-white"
-            : "text-muted hover:bg-paper hover:text-ink"
+            : "text-muted hover:bg-white hover:text-ink"
         )}
       >
         {t.englishShort}
@@ -40,10 +40,10 @@ export function LanguageToggle() {
         href={languageHref("zh")}
         onClick={(event) => handleLanguageClick(event, "zh")}
         className={cn(
-          "rounded px-3 py-1.5 text-sm font-medium transition",
+          "rounded-md px-3 py-1.5 text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
           language === "zh"
             ? "bg-accent text-white"
-            : "text-muted hover:bg-paper hover:text-ink"
+            : "text-muted hover:bg-white hover:text-ink"
         )}
       >
         {t.chineseShort}

@@ -103,12 +103,58 @@ export const confidenceLabels: Record<Language, Record<ConfidenceLevel, string>>
 
 export const dictionary = {
   en: {
+    demoModeLabel: "Demo Mode",
+    demoModeMessage:
+      "Demo mode is active. You can explore sample jobs, dashboard analytics, and profile features. Configure an API key to run real AI JD analysis.",
+    creditsRemaining: "Credits: {remaining}/{limit}",
+    creditsHelper:
+      "Real AI JD analysis uses 1 credit per successful uncached analysis. Sample data and cached analyses do not use credits.",
+    realAiReady:
+      "Real AI analysis is available. Duplicate JD analysis uses cache first and does not consume credits.",
+    demoModeAnalyzeUnavailable:
+      "Demo mode is active. You can explore sample jobs, dashboard analytics, and profile features. Configure an API key to run real AI JD analysis.",
+    creditsExhausted:
+      "Your 10 free guest credits have been used. You can still use sample data, dashboard analytics, and cached analyses.",
+    creditsUnavailable:
+      "Credits are temporarily unavailable. Please try again in a moment.",
+    rawJdTooShort:
+      "Please paste a more complete job description before analyzing.",
+    rawJdTooLong:
+      "Job description is too long. Please keep it under 12,000 characters.",
+    jdLengthHelper: "JD length limit: 80 to 12,000 characters.",
+    trackerHeroTitle: "AI Job Tracker",
+    trackerHeroSubtitle:
+      "Bilingual AI job search analytics for international students.",
+    trackerHeroBody:
+      "Analyze English job descriptions, understand your fit in Chinese, identify skill gaps, and manage applications in one workspace.",
+    tryDemo: "Try Demo",
+    productTrustLine:
+      "Local-first · Bilingual · AI-powered job fit analysis · No login required",
+    jobDescriptionPreview: "Job Description",
+    heroGreatFit: "Great fit",
+    dashboardSnapshot: "Dashboard",
+    snapshotLabel: "Snapshot",
+    viewFullDashboard: "View full dashboard",
+    applications: "Applications",
+    offers: "Offers",
+    matchScoreDistribution: "Match Score Distribution",
+    demoSnapshotEmpty:
+      "Load sample data to preview dashboard analytics and match score distribution.",
+    matchFilter: "Match",
+    allMatches: "All matches",
+    highMatch: "High match",
+    mediumMatch: "Medium match",
+    lowMatch: "Low match",
+    moreFilters: "More Filters",
+    dateAdded: "Date Added",
+    addJobAction: "Add Job",
     appName: "AI Job Tracker",
     subtitle: "AI job search analytics for international students",
     dashboard: "Dashboard",
     profile: "Profile",
     jobList: "Job Tracker",
     addJob: "Analyze JD",
+    analyzeAJd: "Analyze a JD",
     editJob: "Edit Job",
     backToList: "Back to tracker",
     backToDetail: "Back to job detail",
@@ -172,6 +218,7 @@ export const dictionary = {
     defaultProfileHint:
       "Uses your saved candidate profile to score fit and recommend next actions.",
     company: "Company",
+    roleCompany: "Role / Company",
     jobTitle: "Job Title",
     originalJobTitle: "Original job title",
     chineseJobTitle: "Chinese title",
@@ -227,6 +274,7 @@ export const dictionary = {
     applicationDecision: "Application Decision",
     recommendation: "Recommendation",
     recommendedNextAction: "Recommended Next Action",
+    nextAction: "Next Action",
     actionReason: "Reason",
     urgency: "Urgency",
     suggestedDeadline: "Suggested Deadline",
@@ -320,12 +368,52 @@ export const dictionary = {
       "Long resume text was shortened before AI analysis to control cost."
   },
   zh: {
-    appName: "AI 求职追踪表",
+    demoModeLabel: "演示模式",
+    demoModeMessage:
+      "当前为演示模式。你可以查看示例岗位、仪表盘分析和候选人画像。如需真实 AI 岗位分析，请配置 API Key。",
+    creditsRemaining: "剩余分析额度：{remaining}/{limit}",
+    creditsHelper:
+      "真实 AI JD 分析每次成功且未命中缓存时消耗 1 个额度；示例数据和缓存结果不消耗额度。",
+    realAiReady:
+      "真实 AI 分析已启用。重复 JD 会优先使用缓存，不消耗额度。",
+    demoModeAnalyzeUnavailable:
+      "当前为演示模式。你可以查看示例岗位、仪表盘分析和候选人画像。如需真实 AI 岗位分析，请配置 API Key。",
+    creditsExhausted:
+      "你的 10 次免费访客额度已用完。你仍然可以使用示例数据、仪表盘和已缓存分析。",
+    creditsUnavailable: "暂时无法读取访客额度，请稍后再试。",
+    rawJdTooShort: "请粘贴更完整的岗位描述后再分析。",
+    rawJdTooLong: "岗位描述过长，请控制在 12,000 个字符以内。",
+    jdLengthHelper: "JD 长度限制：80 到 12,000 个字符。",
+    trackerHeroTitle: "AI 求职追踪器",
+    trackerHeroSubtitle: "为国际学生打造的双语 AI 求职分析工作台。",
+    trackerHeroBody:
+      "解析英文 JD，用中文理解岗位匹配度，识别技能差距，并统一管理求职进度。",
+    tryDemo: "体验示例",
+    productTrustLine: "本地优先 · 中英双语 · AI 岗位匹配分析 · 无需登录",
+    jobDescriptionPreview: "岗位描述",
+    heroGreatFit: "高度匹配",
+    dashboardSnapshot: "数据看板",
+    snapshotLabel: "快照",
+    viewFullDashboard: "查看完整看板",
+    applications: "申请数",
+    offers: "Offer",
+    matchScoreDistribution: "匹配度分布",
+    demoSnapshotEmpty: "载入示例数据后可预览看板分析和匹配度分布。",
+    matchFilter: "匹配度",
+    allMatches: "全部匹配",
+    highMatch: "高匹配",
+    mediumMatch: "中等匹配",
+    lowMatch: "低匹配",
+    moreFilters: "更多筛选",
+    dateAdded: "添加日期",
+    addJobAction: "添加职位",
+    appName: "AI 求职追踪器",
     subtitle: "面向国际学生的 AI 求职分析平台",
     dashboard: "数据看板",
     profile: "候选人画像",
     jobList: "求职追踪表",
     addJob: "分析 JD",
+    analyzeAJd: "分析 JD",
     editJob: "编辑职位",
     backToList: "返回表格",
     backToDetail: "返回职位详情",
@@ -387,6 +475,7 @@ export const dictionary = {
     notesPlaceholder: "可记录匹配点、内推、截止日期或简历修改方向。",
     defaultProfileHint: "系统会使用你保存的候选人画像来判断匹配度和下一步行动。",
     company: "公司",
+    roleCompany: "职位 / 公司",
     jobTitle: "职位",
     originalJobTitle: "原始职位名称",
     chineseJobTitle: "中文职位名称",
@@ -442,6 +531,7 @@ export const dictionary = {
     applicationDecision: "申请决策",
     recommendation: "推荐结论",
     recommendedNextAction: "推荐下一步行动",
+    nextAction: "下一步",
     actionReason: "原因",
     urgency: "紧急程度",
     suggestedDeadline: "建议完成时间",

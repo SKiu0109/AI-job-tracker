@@ -24,9 +24,13 @@ export const SAMPLE_JOBS: JobRecord[] = [
     skills: ["SQL", "Python", "Excel", "Dashboarding", "Statistics"],
     tools: ["Power BI", "Tableau", "Looker Studio"],
     gaps: ["Limited direct Australian internship experience"],
+    gapsZh: ["澳大利亚本地实习经验相对有限"],
     missingSkills: ["dbt", "A/B testing"],
+    missingSkillsZh: ["dbt", "A/B 测试"],
     roleType: "Data Analyst",
-    region: "Australia"
+    roleTypeZh: "数据分析",
+    region: "Australia",
+    regionZh: "澳大利亚"
   }),
   createSampleJob({
     id: "sample-risk-analyst",
@@ -44,9 +48,13 @@ export const SAMPLE_JOBS: JobRecord[] = [
     skills: ["SQL", "Python", "Credit risk", "Quantitative research"],
     tools: ["Excel", "Python", "SQL"],
     gaps: ["Need stronger examples of financial risk modelling"],
+    gapsZh: ["需要补充更有说服力的金融风险建模案例"],
     missingSkills: ["SAS", "Scorecard modelling"],
+    missingSkillsZh: ["SAS", "评分卡建模"],
     roleType: "Risk Strategy",
-    region: "Singapore"
+    roleTypeZh: "风险策略",
+    region: "Singapore",
+    regionZh: "新加坡"
   }),
   createSampleJob({
     id: "sample-product-ops",
@@ -64,9 +72,85 @@ export const SAMPLE_JOBS: JobRecord[] = [
     skills: ["Product analytics", "SQL", "User research", "Reporting"],
     tools: ["Excel", "SQL", "Figma"],
     gaps: ["Less direct product operations experience"],
+    gapsZh: ["直接产品运营经验相对不足"],
     missingSkills: ["Experiment design", "CRM operations"],
+    missingSkillsZh: ["实验设计", "CRM 运营"],
     roleType: "Product Operations",
-    region: "China"
+    roleTypeZh: "产品运营",
+    region: "China",
+    regionZh: "中国"
+  }),
+  createSampleJob({
+    id: "sample-business-analyst",
+    company: "MarketBridge Advisory",
+    title: "Business Analyst",
+    titleZh: "商业分析师",
+    location: "Melbourne, Australia",
+    jobTypeEn: "Full-time",
+    jobTypeZh: "全职",
+    score: 88,
+    status: "Applied",
+    deadline: "2026-07-22",
+    recommendation: "Strongly apply",
+    nextAction: "Apply now",
+    skills: ["Business analysis", "Excel", "SQL", "Stakeholder communication"],
+    tools: ["Excel", "Power BI", "SQL"],
+    gaps: ["Need stronger consulting-style case examples"],
+    gapsZh: ["需要补充更咨询化的案例表达"],
+    missingSkills: ["Process mapping", "Requirements documentation"],
+    missingSkillsZh: ["流程梳理", "需求文档"],
+    roleType: "Business Analyst",
+    roleTypeZh: "商业分析",
+    region: "Australia",
+    regionZh: "澳大利亚"
+  }),
+  createSampleJob({
+    id: "sample-consulting-analyst",
+    company: "NorthStar Consulting",
+    title: "Consulting Analyst Intern",
+    titleZh: "咨询分析实习生",
+    location: "Singapore",
+    jobTypeEn: "Internship",
+    jobTypeZh: "实习",
+    score: 81,
+    status: "Not Applied",
+    deadline: "2026-07-09",
+    recommendation: "Worth trying",
+    nextAction: "Tailor resume first",
+    skills: ["Market research", "Excel", "Presentation", "Problem solving"],
+    tools: ["Excel", "PowerPoint", "Tableau"],
+    gaps: ["Need more structured consulting project evidence"],
+    gapsZh: ["需要更结构化的咨询项目证据"],
+    missingSkills: ["Case interview framing", "Market sizing"],
+    missingSkillsZh: ["案例面试框架", "市场规模测算"],
+    roleType: "Consulting Analyst",
+    roleTypeZh: "咨询分析",
+    region: "Singapore",
+    regionZh: "新加坡"
+  }),
+  createSampleJob({
+    id: "sample-fintech-ops",
+    company: "PayLink FinTech",
+    title: "FinTech Operations Analyst",
+    titleZh: "金融科技运营分析师",
+    location: "Shenzhen, China",
+    jobTypeEn: "Full-time",
+    jobTypeZh: "全职",
+    score: 69,
+    status: "Not Applied",
+    deadline: "2026-08-01",
+    recommendation: "Low priority",
+    nextAction: "Improve skills before applying",
+    skills: ["Operations analysis", "SQL", "Payment products", "Reporting"],
+    tools: ["Excel", "SQL", "Looker Studio"],
+    gaps: ["Limited direct payments operations experience"],
+    gapsZh: ["支付运营直接经验相对有限"],
+    missingSkills: ["Payment reconciliation", "Fraud operations"],
+    missingSkillsZh: ["支付对账", "反欺诈运营"],
+    roleType: "FinTech Operations",
+    roleTypeZh: "金融科技运营",
+    region: "China",
+    regionZh: "中国"
   })
 ];
 
@@ -86,9 +170,13 @@ function createSampleJob(input: {
   skills: string[];
   tools: string[];
   gaps: string[];
+  gapsZh: string[];
   missingSkills: string[];
+  missingSkillsZh: string[];
   roleType: string;
+  roleTypeZh: string;
   region: string;
+  regionZh: string;
 }): JobRecord {
   const createdAt = now;
 
@@ -134,7 +222,7 @@ function createSampleJob(input: {
     nice_to_have_en: ["Dashboard experience", "FinTech or consulting exposure"],
     nice_to_have_zh: ["仪表盘经验", "金融科技或咨询相关经历"],
     match_score: input.score,
-    match_score_breakdown: createBreakdown(input.score, input.region),
+    match_score_breakdown: createBreakdown(input.score, input.region, input.regionZh),
     key_strengths_en: [
       "Strong fit with statistics and business analytics background.",
       "Relevant SQL, Python, Excel, and report writing experience."
@@ -144,7 +232,7 @@ function createSampleJob(input: {
       "SQL、Python、Excel 和报告写作经验相关度较高。"
     ],
     main_gaps_en: input.gaps,
-    main_gaps_zh: input.gaps.map((gap) => `需要补强：${gap}`),
+    main_gaps_zh: input.gapsZh.map((gap) => `需要补强：${gap}`),
     application_recommendation: input.recommendation,
     recommended_next_action: {
       action: input.nextAction,
@@ -167,14 +255,14 @@ function createSampleJob(input: {
     },
     red_flags_en: input.score >= 85 ? [] : input.gaps,
     red_flags_zh:
-      input.score >= 85 ? [] : input.gaps.map((gap) => `潜在风险：${gap}`),
+      input.score >= 85 ? [] : input.gapsZh.map((gap) => `潜在风险：${gap}`),
     positive_signals_en: [
       "JD mentions analytics, reporting, and stakeholder communication.",
       `Location aligns with target region: ${input.region}.`
     ],
     positive_signals_zh: [
       "JD 提到分析、报告和业务沟通。",
-      `地点符合目标地区：${input.region}。`
+      `地点符合目标地区：${input.regionZh}。`
     ],
     assumptions_en: [
       "Assumes the candidate can provide project examples for SQL and dashboard work."
@@ -193,11 +281,11 @@ function createSampleJob(input: {
       "Move SQL, Python, Excel, and dashboard keywords into the top half of the resume."
     ],
     resume_tailoring_advice_zh: [
-      `围绕 ${input.roleType} 结果和可量化业务影响改写项目经历。`,
+      `围绕${input.roleTypeZh}结果和可量化业务影响改写项目经历。`,
       "把 SQL、Python、Excel 和仪表盘关键词放到简历前半部分。"
     ],
     skills_to_improve_en: input.missingSkills,
-    skills_to_improve_zh: input.missingSkills.map((skill) => `补充学习 ${skill}`),
+    skills_to_improve_zh: input.missingSkillsZh.map((skill) => `补充学习${skill}`),
     matched_skills: input.skills.slice(0, 4),
     missing_skills: input.missingSkills,
     missing_skill_details: createMissingSkillDetails(input.missingSkills),
@@ -250,7 +338,11 @@ function createSampleJob(input: {
   };
 }
 
-function createBreakdown(score: number, region: string): MatchScoreBreakdown {
+function createBreakdown(
+  score: number,
+  region: string,
+  regionZh: string
+): MatchScoreBreakdown {
   return {
     education_fit: dimension(
       score,
@@ -295,7 +387,7 @@ function createBreakdown(score: number, region: string): MatchScoreBreakdown {
     location_fit: dimension(
       score - 5,
       `Location is relevant to ${region}.`,
-      `地点符合 ${region} 求职方向。`,
+      `地点符合${regionZh}求职方向。`,
       `JD location is ${region}.`,
       "Work rights or sponsorship details are not fully stated.",
       "工作权利或签证支持信息不够明确。"

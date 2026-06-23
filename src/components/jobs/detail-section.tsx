@@ -8,9 +8,11 @@ export function DetailSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-line bg-white p-4 shadow-soft">
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
-      <div className="mt-3">{children}</div>
+    <section className="rounded-panel border border-line bg-white p-4 shadow-soft">
+      <h2 className="text-base font-semibold tracking-normal text-ink">
+        {title}
+      </h2>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }

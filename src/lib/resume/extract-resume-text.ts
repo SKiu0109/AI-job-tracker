@@ -1,4 +1,5 @@
 import { readFile } from "fs/promises";
+import { createRequire } from "module";
 import path from "path";
 
 const MAX_RESUME_FILE_SIZE = 5 * 1024 * 1024;
@@ -10,6 +11,7 @@ const DOCX_MIME =
 const PDF_MIME = "application/pdf";
 
 let cachedPdfWorkerDataUrl: string | null = null;
+const nodeRequire = createRequire(import.meta.url);
 
 export type ResumeTextExtractionCode =
   | "resume_too_large"
@@ -106,11 +108,7 @@ async function getPdfWorkerDataUrl() {
     return cachedPdfWorkerDataUrl;
   }
 
-  const packageRoot = path.join(
-    /*turbopackIgnore: true*/ process.cwd(),
-    "node_modules",
-    "pdf-parse"
-  );
+  const packageRoot = getPdfParsePackageRoot();
   const workerCandidates = [
     path.join(packageRoot, "dist", "pdf-parse", "esm", "pdf.worker.mjs"),
     path.join(packageRoot, "dist", "pdf-parse", "cjs", "pdf.worker.mjs"),
@@ -133,6 +131,11 @@ async function getPdfWorkerDataUrl() {
     "resume_text_empty",
     "Could not load the PDF parser worker. Please try uploading a .docx resume instead."
   );
+}
+
+function getPdfParsePackageRoot() {
+  const entryDirectory = path.dirname(nodeRequire.resolve("pdf-parse"));
+  return path.resolve(entryDirectory, "..", "..", "..");
 }
 
 function normalizeExtractedText(text: string) {

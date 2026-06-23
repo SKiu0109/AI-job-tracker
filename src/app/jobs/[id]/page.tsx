@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { CompanyLogo } from "@/components/jobs/company-logo";
 import { DetailSection } from "@/components/jobs/detail-section";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { StatusSelect } from "@/components/jobs/status-select";
@@ -56,12 +57,16 @@ export default function JobDetailPage() {
   };
 
   if (!isLoaded) {
-    return <div className="rounded-md border border-line bg-white p-6">{t.analyzing}</div>;
+    return (
+      <div className="rounded-panel border border-line bg-white p-6 shadow-soft">
+        {t.analyzing}
+      </div>
+    );
   }
 
   if (!job) {
     return (
-      <div className="rounded-md border border-line bg-white p-8 text-center shadow-soft">
+      <div className="rounded-panel border border-line bg-white p-8 text-center shadow-panel">
         <h1 className="text-xl font-semibold text-ink">{t.notFound}</h1>
         <p className="mt-2 text-sm text-muted">{t.notFoundBody}</p>
         <ButtonLink href="/" className="mt-5">
@@ -80,6 +85,7 @@ export default function JobDetailPage() {
     language === "zh" && primaryTitle !== job.job_title_original
       ? job.job_title_original
       : "";
+  const decisionTone = getDecisionCardTone(job.application_recommendation);
 
   return (
     <div className="space-y-5">
@@ -97,16 +103,20 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <section className="overflow-hidden rounded-panel border border-line bg-white shadow-panel">
+        <div className="p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-muted">{job.company}</p>
-            <h1 className="mt-1 text-2xl font-semibold text-ink">
-              {primaryTitle}
-            </h1>
-            {secondaryTitle ? (
-              <p className="mt-2 text-base text-muted">{secondaryTitle}</p>
-            ) : null}
+          <div className="flex min-w-0 items-start gap-4">
+            <CompanyLogo company={job.company} size="lg" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-muted">{job.company}</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-normal text-ink">
+                {primaryTitle}
+              </h1>
+              {secondaryTitle ? (
+                <p className="mt-2 text-base text-muted">{secondaryTitle}</p>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -141,26 +151,33 @@ export default function JobDetailPage() {
             value={formatDate(job.created_at, locale)}
           />
         </dl>
+        </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[300px_1fr]">
-        <div className="rounded-md border border-line bg-white p-4 shadow-soft">
-          <p className="text-sm font-semibold text-muted">{t.applicationDecision}</p>
+      <section className="grid gap-5 lg:grid-cols-[320px_1fr]">
+        <div className={`rounded-panel border p-4 text-white shadow-panel ${decisionTone}`}>
+          <p className="text-sm font-semibold text-white/68">
+            {t.applicationDecision}
+          </p>
           <div className="mt-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-muted">{t.matchScore}</p>
+              <p className="text-sm font-semibold text-white/68">
+                {t.matchScore}
+              </p>
               <div className="mt-2">
                 <ScoreBadge score={job.match_score} />
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-muted">{t.recommendation}</p>
-              <p className="mt-2 text-lg font-semibold text-ink">
+              <p className="text-sm font-semibold text-white/68">
+                {t.recommendation}
+              </p>
+              <p className="mt-2 text-lg font-semibold text-white">
                 {recommendations[job.application_recommendation]}
               </p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-6 text-ink">
+          <p className="mt-4 text-sm leading-6 text-white/82">
             {localizedText(job.ai_summary_en, job.ai_summary_zh, language)}
           </p>
         </div>
@@ -188,7 +205,10 @@ export default function JobDetailPage() {
             </div>
             <MetaItem
               label={t.suggestedDeadline}
-              value={job.recommended_next_action.suggested_deadline}
+              value={localizeDisplayValue(
+                job.recommended_next_action.suggested_deadline,
+                language
+              )}
             />
           </div>
         </DetailSection>
@@ -287,10 +307,12 @@ export default function JobDetailPage() {
               {job.missing_skill_details.map((item) => (
                 <div
                   key={item.skill}
-                  className="rounded-md border border-line bg-paper p-3"
+                  className="rounded-panel border border-line bg-surface-muted p-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-ink">{item.skill}</p>
+                    <p className="font-semibold text-ink">
+                      {localizeKeyword(item.skill, language)}
+                    </p>
                     <Badge>{priorities[item.priority]}</Badge>
                   </div>
                   <dl className="mt-3 space-y-2 text-sm leading-6">
@@ -304,11 +326,17 @@ export default function JobDetailPage() {
                     />
                     <DetailRow
                       label={t.matchImpact}
-                      value={item.impact_on_match_score}
+                      value={localizeDisplayValue(
+                        item.impact_on_match_score,
+                        language
+                      )}
                     />
                     <DetailRow
                       label={t.learningResourceType}
-                      value={item.suggested_resource_type}
+                      value={localizeDisplayValue(
+                        item.suggested_resource_type,
+                        language
+                      )}
                     />
                   </dl>
                 </div>
@@ -341,7 +369,11 @@ export default function JobDetailPage() {
           <dl className="grid gap-3 sm:grid-cols-2">
             <MetaItem
               label={t.applicationChannel}
-              value={job.application_channel || t.notProvided}
+              value={
+                job.application_channel
+                  ? localizeDisplayValue(job.application_channel, language)
+                  : t.notProvided
+              }
             />
             <MetaItem
               label={t.contactPerson}
@@ -376,13 +408,15 @@ export default function JobDetailPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <DetailSection title={t.notes}>
           <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
-            {job.notes || t.notProvided}
+            {job.notes ? localizeDisplayValue(job.notes, language) : t.notProvided}
           </p>
         </DetailSection>
 
         <DetailSection title={t.followUpNotes}>
           <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
-            {job.follow_up_notes || t.notProvided}
+            {job.follow_up_notes
+              ? localizeDisplayValue(job.follow_up_notes, language)
+              : t.notProvided}
           </p>
         </DetailSection>
       </div>
@@ -419,11 +453,11 @@ export default function JobDetailPage() {
         </DetailSection>
       </div>
 
-      <details className="rounded-md border border-line bg-white p-4 shadow-soft">
+      <details className="rounded-panel border border-line bg-white p-4 shadow-soft">
         <summary className="cursor-pointer text-base font-semibold text-ink">
           {t.rawJdToggle}
         </summary>
-        <pre className="mt-4 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-md border border-line bg-paper p-4 text-sm leading-6 text-ink">
+        <pre className="mt-4 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-app border border-line bg-surface-muted p-4 text-sm leading-6 text-ink">
           {job.raw_jd}
         </pre>
       </details>
@@ -433,7 +467,7 @@ export default function JobDetailPage() {
 
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-line bg-paper px-3 py-2">
+    <div className="rounded-app border border-line bg-surface-muted px-3 py-2">
       <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
         {label}
       </dt>
@@ -455,7 +489,7 @@ function BreakdownCard({
   const item = job.match_score_breakdown[dimension];
 
   return (
-    <div className="rounded-md border border-line bg-paper p-3">
+    <div className="rounded-panel border border-line bg-surface-muted p-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-ink">
           {getDimensionLabel(dimension, t)}
@@ -466,7 +500,10 @@ function BreakdownCard({
         {localizedText(item.explanation_en, item.explanation_zh, language)}
       </p>
       <dl className="mt-3 space-y-2 border-t border-line pt-3 text-xs leading-5">
-        <DetailRow label={t.evidenceFromJd} value={item.evidence_from_jd} />
+        <DetailRow
+          label={t.evidenceFromJd}
+          value={localizeEvidenceText(item.evidence_from_jd, language)}
+        />
         <DetailRow
           label={t.candidateGap}
           value={localizedText(item.candidate_gap_en, item.candidate_gap_zh, language)}
@@ -498,8 +535,11 @@ function ListBlock({ values }: { values: string[] }) {
 
   return values.length ? (
     <ul className="space-y-2 text-sm leading-6 text-ink">
-      {values.map((value) => (
-        <li key={value} className="rounded-md bg-paper px-3 py-2">
+      {values.map((value, index) => (
+        <li
+          key={`${value}-${index}`}
+          className="rounded-app bg-surface-muted px-3 py-2"
+        >
           {value}
         </li>
       ))}
@@ -546,14 +586,18 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function TagGroup({ title, values }: { title: string; values: string[] }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   return (
     <div>
       <h3 className="text-sm font-semibold text-muted">{title}</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         {values.length ? (
-          values.map((value) => <Badge key={value}>{value}</Badge>)
+          values.map((value, index) => (
+            <Badge key={`${value}-${index}`}>
+              {localizeKeyword(value, language)}
+            </Badge>
+          ))
         ) : (
           <p className="text-sm text-muted">{t.notSpecified}</p>
         )}
@@ -568,7 +612,10 @@ function Timeline({ job, locale }: { job: JobRecord; locale: string }) {
   return (
     <ol className="space-y-3">
       {job.status_history.map((item) => (
-        <li key={item.id} className="rounded-md border border-line bg-paper p-3">
+        <li
+          key={item.id}
+          className="rounded-panel border border-line bg-surface-muted p-3"
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-ink">
               {timelineStatuses[item.status]}
@@ -578,7 +625,9 @@ function Timeline({ job, locale }: { job: JobRecord; locale: string }) {
             </p>
           </div>
           {item.note ? (
-            <p className="mt-2 text-sm leading-6 text-muted">{item.note}</p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              {localizeDisplayValue(item.note, locale.startsWith("zh") ? "zh" : "en")}
+            </p>
           ) : null}
         </li>
       ))}
@@ -590,11 +639,106 @@ function Timeline({ job, locale }: { job: JobRecord; locale: string }) {
 }
 
 function localizedText(en: string, zh: string, language: "en" | "zh") {
-  return language === "zh" ? zh : en;
+  if (language === "zh" && isUsefulValue(zh)) {
+    return zh;
+  }
+
+  return en;
 }
 
 function localizedArray(en: string[], zh: string[], language: "en" | "zh") {
-  return language === "zh" ? zh : en;
+  if (language === "zh" && zh.some(isUsefulValue)) {
+    return zh.filter(isUsefulValue);
+  }
+
+  return en;
+}
+
+const displayTranslationsZh: Record<string, string> = {
+  "Company website": "公司官网",
+  "Within 3 days": "3 天内",
+  "This week": "本周内",
+  "Medium impact": "中等影响",
+  "Low to medium impact": "低到中等影响",
+  project: "项目",
+  "short course": "短课程",
+  "practice task": "练习任务",
+  documentation: "文档学习",
+  "portfolio project": "作品集项目",
+  "portfolio task": "作品集任务",
+  "Not specified": "未注明",
+  "Sample record. Replace with your own notes when applying.":
+    "示例记录。正式申请时可替换为你自己的备注。",
+  "Prepare analytics project walkthrough and role motivation.":
+    "准备分析项目讲解和岗位动机说明。",
+  "Recruiter screen scheduled.": "已安排招聘初筛。",
+  "Sample job for portfolio demo mode.": "作品集演示模式的示例职位。"
+};
+
+const evidenceTranslationsZh: Record<string, string> = {
+  "JD asks for statistics, analytics, finance, economics, or related fields.":
+    "JD 要求统计、分析、金融、经济或相关领域背景。",
+  "JD mentions SQL, Python, Excel, dashboards, or reporting.":
+    "JD 提到 SQL、Python、Excel、仪表盘或报告能力。",
+  "JD expects communication with business stakeholders.":
+    "JD 要求与业务相关方沟通。",
+  "JD uses junior, internship, associate, or 0-2 years language.":
+    "JD 使用初级、实习、专员或 0-2 年经验等表述。",
+  "JD responsibilities map to analytics and business decision support.":
+    "JD 职责与分析和业务决策支持相关。"
+};
+
+const keywordTranslationsZh: Record<string, string> = {
+  "A/B testing": "A/B 测试",
+  "Scorecard modelling": "评分卡建模",
+  "Experiment design": "实验设计",
+  "CRM operations": "CRM 运营"
+};
+
+function localizeDisplayValue(value: string, language: "en" | "zh") {
+  if (language === "en") {
+    return value;
+  }
+
+  return displayTranslationsZh[value] ?? value;
+}
+
+function localizeEvidenceText(value: string, language: "en" | "zh") {
+  if (language === "en") {
+    return value;
+  }
+
+  const translated = evidenceTranslationsZh[value] ?? displayTranslationsZh[value];
+
+  if (translated) {
+    return translated;
+  }
+
+  const locationMatch = value.match(/^JD location is (.+)\.$/);
+
+  if (locationMatch) {
+    return `JD 地点为${localizeRegionName(locationMatch[1])}。`;
+  }
+
+  return value;
+}
+
+function localizeKeyword(value: string, language: "en" | "zh") {
+  if (language === "en") {
+    return value;
+  }
+
+  return keywordTranslationsZh[value] ?? value;
+}
+
+function localizeRegionName(value: string) {
+  const labels: Record<string, string> = {
+    Australia: "澳大利亚",
+    Singapore: "新加坡",
+    China: "中国"
+  };
+
+  return labels[value] ?? value;
 }
 
 function getDimensionLabel(
@@ -611,6 +755,19 @@ function getDimensionLabel(
   };
 
   return labels[dimension];
+}
+
+function getDecisionCardTone(
+  recommendation: JobRecord["application_recommendation"]
+) {
+  const tones: Record<JobRecord["application_recommendation"], string> = {
+    "Strongly apply": "border-teal-600 bg-teal-700",
+    "Worth trying": "border-sky-600 bg-sky-700",
+    "Low priority": "border-amber-500 bg-amber-600",
+    "Not recommended": "border-rose-600 bg-rose-700"
+  };
+
+  return tones[recommendation];
 }
 
 function formatOptionalDate(

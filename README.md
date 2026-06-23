@@ -4,6 +4,24 @@ A local-first AI job application management platform for Chinese-speaking intern
 
 The app helps students paste job descriptions, generate evidence-based AI analysis, decide which jobs are worth applying to, understand skill gaps, tailor resumes, and manage applications in a spreadsheet-style tracker.
 
+Product positioning: From job tracker to bilingual AI job search analytics platform.
+
+## Live Demo
+
+Live Demo: https://ai-bilingual-job-tracker.vercel.app
+
+## Screenshots
+
+Screenshots are not committed yet. Recommended portfolio screenshots:
+
+- Tracker desktop table and mobile job cards
+- Dashboard analytics
+- Job detail analysis page
+- Candidate profile page
+- Demo Mode and guest credits banner
+
+After the visual refresh, retake screenshots so the portfolio shows the current polished navigation, compact tracker intro, refined table, mobile cards, and dashboard/detail hierarchy.
+
 ## Target Users
 
 - Chinese-speaking international students applying for analyst, consulting, product operations, risk, FinTech, and business roles
@@ -25,6 +43,10 @@ The app helps students paste job descriptions, generate evidence-based AI analys
 - Dashboard analytics for application funnel, role types, average match by role, top skills, missing skills, tools, regions, and high-priority jobs
 - English / Simplified Chinese UI toggle with static translation dictionaries
 - Demo sample data for review without calling the AI API
+- Demo Mode indicator when real AI analysis is unavailable
+- Anonymous guest credits for controlled public demo usage
+- Mobile card layout for job records while keeping the desktop spreadsheet table
+- Basic PWA manifest and install metadata
 - Server-only AI provider abstraction for OpenAI-compatible providers including OpenAI and DeepSeek
 
 ## Tech Stack
@@ -37,6 +59,21 @@ The app helps students paste job descriptions, generate evidence-based AI analys
 - Resume text extraction with Mammoth for Word `.docx` files and pdf-parse for text-based PDFs
 - Lightweight custom table and dashboard visual blocks
 - Windows local-app launcher scripts for one-click local use
+
+## Architecture
+
+```mermaid
+flowchart TD
+  Browser["Browser UI\nTracker, Dashboard, Profile, Add JD"] --> LocalStorage["Local storage\nJobs, profile, client analysis cache"]
+  Browser --> CreditsAPI["/api/credits\nGuest session + credit status"]
+  Browser --> AnalyzeAPI["/api/analyze-job\nValidation, cache, credits"]
+  Browser --> ResumeAPI["/api/analyze-resume\nResume text extraction"]
+  CreditsAPI --> CreditService["Credits service abstraction\nCurrent: in-memory mock store"]
+  AnalyzeAPI --> ServerCache["Server analysis cache\nCurrent: in-memory cache"]
+  AnalyzeAPI --> Provider["OpenAI-compatible provider\nOpenAI or DeepSeek"]
+  ResumeAPI --> Provider
+  Provider --> Env["Server-only env vars\nAI_PROVIDER, AI_MODEL, API keys"]
+```
 
 ## AI Analysis Workflow
 
@@ -104,28 +141,71 @@ Each dimension includes a score, explanation, evidence from the JD, candidate ga
 
 The score should increase when a role fits analytics, product operations, risk, consulting, FinTech, or early-career business roles. It should decrease when the JD requires many years of experience, missing work rights, unclear sponsorship fit, or skills far outside the profile.
 
-## Cost Control Notes
+## API Cost Control
 
 - AI output is requested as concise JSON only.
+- JD analysis enforces a minimum text length and a maximum JD length of 12,000 characters.
 - Resume text is shortened before AI analysis if it is very long.
 - The app caches analyses in local storage using the normalized JD and candidate profile.
 - Re-analyzing the same unchanged JD with the same profile reuses cached analysis.
+- `/api/analyze-job` also checks a server-side cache before calling the AI provider.
+- Anonymous guest credits are checked on the server before real AI analysis runs.
+- Credits are only consumed for successful, uncached JD analyses.
+- Credits are not consumed when the AI call fails, when sample data is loaded, or when a cached duplicate analysis is reused.
 - The source URL is saved only as a reference; the app does not scrape protected job boards.
-- Future server-side caching can be added in `/api/analyze-job`.
+- Future production hardening should add IP-based guest creation limits and server-side rate limiting.
 
 ## Demo Mode and Sample Data
 
-The app can be reviewed without an API key:
+The deployed app is usable without an API key. When no supported provider key is configured, the UI shows Demo Mode:
+
+```text
+Demo mode is active. You can explore sample jobs, dashboard analytics, and profile features. Configure an API key to run real AI JD analysis.
+```
+
+```text
+当前为演示模式。你可以查看示例岗位、仪表盘分析和候选人画像。如需真实 AI 岗位分析，请配置 API Key。
+```
+
+In Demo Mode, reviewers can:
 
 1. Open the tracker.
 2. Click `Load sample data`.
-3. Review the dashboard, table, detail page, profile page, edit flow, filters, batch actions, export, and timeline.
+3. Review the dashboard, tracker, job detail page, profile page, edit flow, filters, batch actions, CSV export, and timeline.
 
 You can also test the Add Job workflow with:
 
 ```text
 samples/sample-jd.txt
 ```
+
+Without an API key, the Analyze JD flow shows a friendly message instead of calling a provider or crashing.
+
+## Guest Credits
+
+Each anonymous browser session receives 10 free guest credits.
+
+- Analyzing 1 uncached JD costs 1 credit.
+- Loading demo sample data costs 0 credits.
+- Reusing cached analysis for the same JD and same candidate profile costs 0 credits.
+- Failed AI provider calls are refunded and do not consume credits.
+- When credits are exhausted, real AI JD analysis is blocked with a bilingual message.
+
+Current implementation:
+
+- A secure, HTTP-only session cookie stores the anonymous guest ID.
+- A server-side credits service abstraction enforces credits in `/api/analyze-job`.
+- The current adapter is an in-memory mock store suitable for local development and lightweight demos.
+
+Production limitation: in-memory credits are not durable across Vercel serverless instance restarts or multiple regions. Plug in Supabase, Vercel KV, or Upstash Redis before relying on credits for production-grade enforcement.
+
+## Mobile and PWA
+
+- Desktop keeps the spreadsheet-style tracker table.
+- Mobile shows clickable job cards with company, title, match score, recommendation, status, deadline, and next action.
+- Dashboard and detail sections stack vertically on small screens.
+- The app includes a web app manifest, theme color, and placeholder app icon so supported browsers can add it to the home screen.
+- No service worker is included yet; offline AI analysis is intentionally not supported.
 
 ## Run Locally
 
@@ -135,6 +215,22 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Deploy on Vercel
+
+1. Push the repository to GitHub.
+2. In Vercel, create a new project and import the repository.
+3. Keep the default Next.js framework settings.
+4. Set environment variables only if real AI analysis should be enabled.
+5. Deploy.
+
+Recommended public portfolio setup:
+
+- Leave `OPENAI_API_KEY` and `DEEPSEEK_API_KEY` unset for a safe Demo Mode deployment.
+- Use sample data to let reviewers explore the tracker, dashboard, job detail page, candidate profile, edit flow, and CSV export.
+- Add an API key only when you are ready to pay for real public AI usage.
+
+Cost warning: if real AI analysis is enabled on a public deployment, visitors can trigger provider calls. Guest credits and JD limits reduce risk, but persistent storage and server-side rate limiting should be added before broad public launch.
 
 ## Windows Local Launcher
 
@@ -156,7 +252,11 @@ Launcher logs are stored in `.localappdata`, which is ignored by Git.
 
 ## Environment Variables
 
-Create `.env.local` in the project root. Never commit this file.
+Create `.env.local` in the project root for local development, or set the same variables in Vercel Project Settings. Never commit real keys.
+
+All API keys are server-only. Do not prefix them with `NEXT_PUBLIC_`.
+
+Required only for real AI analysis:
 
 OpenAI example:
 
@@ -174,6 +274,14 @@ AI_MODEL=deepseek-chat
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 
+Demo Mode setup:
+
+```bash
+AI_PROVIDER=openai
+AI_MODEL=gpt-5-mini
+# Leave OPENAI_API_KEY and DEEPSEEK_API_KEY unset
+```
+
 ## Useful Commands
 
 ```bash
@@ -181,24 +289,28 @@ pnpm lint
 pnpm build
 ```
 
-## Product Constraints
+## Limitations
 
+- Local-first persistence; jobs and profile data are stored in the browser.
+- Guest credits need a persistent backend for production-grade enforcement.
 - No login
 - No payment
 - No browser extension
 - No scraping LinkedIn, Seek, Indeed, or other protected job boards
 - Source URLs are saved only as references
 - Uploaded resume files are used for one-time server-side text extraction and are not stored by the app
-- Persistence is local-first for this MVP
+- No user-uploaded resume parsing beyond the existing `.docx` and text-based `.pdf` profile draft flow
 - API keys must stay in `.env.local` and server-side environment variables only
 
 ## Roadmap
 
+- Supabase persistence
+- Login system
+- Persistent guest credits
+- Resume tailoring workspace
+- Calendar reminders
+- Mobile app wrapper / PWA improvements
 - CSV import and backup restore
-- Resume version tracking per job
-- OCR support for scanned PDF resumes
-- Calendar reminders for deadlines, follow-ups, and interviews
-- Optional SQLite or Supabase persistence
 - More robust AI JSON validation with schema tooling
-- Deployment-ready demo mode with seeded non-sensitive data
-- Resume tailoring workspace and cover letter draft helper
+- OCR support for scanned PDF resumes
+- Cover letter draft helper

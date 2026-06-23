@@ -7,9 +7,12 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants = {
-  primary: "border-accent bg-accent text-white hover:bg-teal-800",
-  secondary: "border-line bg-white text-ink hover:bg-paper",
-  ghost: "border-transparent bg-transparent text-muted hover:bg-paper hover:text-ink"
+  primary:
+    "border-accent bg-accent text-white shadow-soft hover:border-accent-strong hover:bg-accent-strong hover:shadow-lift",
+  secondary:
+    "border-line bg-white text-ink shadow-soft hover:border-line-strong hover:bg-surface-muted",
+  ghost:
+    "border-transparent bg-transparent text-muted hover:bg-white hover:text-ink"
 };
 
 export function Button({
@@ -22,7 +25,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-10 items-center justify-center rounded-app border px-4 py-2 text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
         variants[variant],
         className
       )}
@@ -46,7 +49,7 @@ export function ButtonLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold transition",
+        "inline-flex min-h-10 items-center justify-center rounded-app border px-4 py-2 text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         variants[variant],
         className
       )}

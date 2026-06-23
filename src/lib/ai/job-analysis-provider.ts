@@ -52,44 +52,65 @@ export interface AiProvider {
   ): Promise<ResumeProfileAnalysis>;
 }
 
+type ProviderConfig = {
+  apiKey?: string;
+  apiKeyEnvName: string;
+  endpoint: string;
+  maxTokensField: "max_completion_tokens" | "max_tokens";
+  model: string;
+  providerName: string;
+};
+
+export function getAiProviderConfigStatus() {
+  try {
+    const config = getProviderConfig();
+
+    return {
+      configured: isConfiguredApiKey(config.apiKey),
+      provider: config.providerName,
+      apiKeyEnvName: config.apiKeyEnvName
+    };
+  } catch {
+    return {
+      configured: false,
+      provider: process.env.AI_PROVIDER || "openai"
+    };
+  }
+}
+
 export function getAiProvider(): AiProvider {
+  return new ChatCompletionsJobAnalysisProvider(getProviderConfig());
+}
+
+function getProviderConfig(): ProviderConfig {
   const provider = process.env.AI_PROVIDER || "openai";
 
   switch (provider.toLowerCase()) {
     case "openai":
-      return new ChatCompletionsJobAnalysisProvider({
+      return {
         apiKey: process.env.OPENAI_API_KEY,
         apiKeyEnvName: "OPENAI_API_KEY",
         endpoint: "https://api.openai.com/v1/chat/completions",
         maxTokensField: "max_completion_tokens",
         model: process.env.AI_MODEL || "gpt-5-mini",
         providerName: "OpenAI"
-      });
+      };
     case "deepseek":
-      return new ChatCompletionsJobAnalysisProvider({
+      return {
         apiKey: process.env.DEEPSEEK_API_KEY,
         apiKeyEnvName: "DEEPSEEK_API_KEY",
         endpoint: "https://api.deepseek.com/chat/completions",
         maxTokensField: "max_tokens",
         model: process.env.AI_MODEL || "deepseek-chat",
         providerName: "DeepSeek"
-      });
+      };
     default:
       throw new Error(`Unsupported AI_PROVIDER: ${provider}`);
   }
 }
 
 class ChatCompletionsJobAnalysisProvider implements AiProvider {
-  constructor(
-    private readonly config: {
-      apiKey?: string;
-      apiKeyEnvName: string;
-      endpoint: string;
-      maxTokensField: "max_completion_tokens" | "max_tokens";
-      model: string;
-      providerName: string;
-    }
-  ) {}
+  constructor(private readonly config: ProviderConfig) {}
 
   async analyzeJob(input: AnalyzeJobInput): Promise<JobAnalysis> {
     if (!isConfiguredApiKey(this.config.apiKey)) {
