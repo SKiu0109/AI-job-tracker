@@ -1,4 +1,4 @@
-export type CreditStoreKind = "memory";
+export type CreditStoreKind = "memory" | "supabase";
 
 export type CreditBalance = {
   remaining: number;

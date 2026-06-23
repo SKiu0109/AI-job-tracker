@@ -16,7 +16,7 @@ export async function GET() {
   const guestSession = getOrCreateGuestSession(
     cookieStore.get(GUEST_ID_COOKIE)?.value
   );
-  const credits = getCreditsService().getBalance(guestSession.guestId);
+  const credits = await getCreditsService().getBalance(guestSession.guestId);
   const ai = getAiProviderConfigStatus();
   const payload: CreditsStatusResponse = {
     credits: {

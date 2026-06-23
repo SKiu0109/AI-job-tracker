@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     cookieStore.get(GUEST_ID_COOKIE)?.value
   );
   const creditsService = getCreditsService();
-  const currentCredits = creditsService.getBalance(guestSession.guestId);
+  const currentCredits = await creditsService.getBalance(guestSession.guestId);
   const respond = (
     payload: Record<string, unknown>,
     init?: ResponseInit
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const reservedCredits = creditsService.trySpend(
+  const reservedCredits = await creditsService.trySpend(
     guestSession.guestId,
     JD_ANALYSIS_CREDIT_COST
   );
@@ -150,10 +150,10 @@ export async function POST(request: Request) {
     return respond({
       analysis,
       cached: false,
-      credits: toPublicCredits(creditsService.getBalance(guestSession.guestId))
+      credits: toPublicCredits(await creditsService.getBalance(guestSession.guestId))
     });
   } catch (error) {
-    creditsService.refund(guestSession.guestId, JD_ANALYSIS_CREDIT_COST);
+    await creditsService.refund(guestSession.guestId, JD_ANALYSIS_CREDIT_COST);
 
     if (isMissingApiKeyError(error)) {
       return respond(
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
           code: "missing_api_key",
           error: ERROR_MESSAGES.missing_api_key.en,
           message: ERROR_MESSAGES.missing_api_key,
-          credits: toPublicCredits(creditsService.getBalance(guestSession.guestId))
+          credits: toPublicCredits(await creditsService.getBalance(guestSession.guestId))
         },
         { status: 503 }
       );
@@ -174,7 +174,7 @@ export async function POST(request: Request) {
         code: "analysis_failed",
         error: ERROR_MESSAGES.analysis_failed.en,
         message: ERROR_MESSAGES.analysis_failed,
-        credits: toPublicCredits(creditsService.getBalance(guestSession.guestId))
+        credits: toPublicCredits(await creditsService.getBalance(guestSession.guestId))
       },
       { status: 500 }
     );

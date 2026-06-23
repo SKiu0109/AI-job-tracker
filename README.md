@@ -71,7 +71,7 @@ flowchart TD
   Browser --> ResumeAPI["/api/analyze-resume\nResume text extraction"]
   Browser --> EventsAPI["/api/product-events\nLightweight event tracking"]
   Browser --> FeedbackAPI["/api/feedback\nUser feedback collection"]
-  CreditsAPI --> CreditService["Credits service abstraction\nCurrent: in-memory mock store"]
+  CreditsAPI --> CreditService["Credits service abstraction\nSupabase when configured, memory fallback"]
   AnalyzeAPI --> ServerCache["Server analysis cache\nCurrent: in-memory cache"]
   EventsAPI --> ValidationStore["Product validation store\nCurrent: in-memory mock store"]
   FeedbackAPI --> ValidationStore
@@ -200,9 +200,11 @@ Current implementation:
 
 - A secure, HTTP-only session cookie stores the anonymous guest ID.
 - A server-side credits service abstraction enforces credits in `/api/analyze-job`.
-- The current adapter is an in-memory mock store suitable for local development and lightweight demos.
+- The current adapter writes to Supabase when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured.
+- Without Supabase, or if a Supabase call fails, the app falls back to an in-memory mock store suitable for local development and lightweight demos.
+- Supabase credit spend and refund operations use RPC functions so credit deduction is atomic server-side instead of being enforced only in frontend state.
 
-Production limitation: in-memory credits are not durable across Vercel serverless instance restarts or multiple regions. Plug in Supabase, Vercel KV, or Upstash Redis before relying on credits for production-grade enforcement.
+Production limitation: fallback in-memory credits are not durable across Vercel serverless instance restarts or multiple regions. Configure Supabase, Vercel KV, or Upstash Redis before relying on credits for production-grade enforcement.
 
 ## Validation MVP Layer
 
@@ -214,7 +216,7 @@ Current implementation:
 - `/api/feedback` validates submissions server-side and records them through a product validation service abstraction.
 - `/api/product-events` accepts lightweight product events for key actions such as loading demo data, clicking Analyze JD, exporting CSV, opening job details, and saving analyzed jobs.
 - Client-side event tracking is fire-and-forget. If the request fails, recent events are queued in local storage so the product flow is not blocked.
-- If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, feedback and product events are written to Supabase through the server-only REST API.
+- If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, feedback, product events, and guest credits are written to Supabase through the server-only REST API.
 - If Supabase is not configured, or a Supabase write fails, the app falls back to the in-memory validation store so the public demo remains usable.
 
 Current limitation:
@@ -223,7 +225,7 @@ Current limitation:
 
 Optional Supabase setup:
 
-- Run `supabase/validation-mvp.sql` in the Supabase SQL editor.
+- Run `supabase/validation-mvp.sql` in the Supabase SQL editor. It creates `product_events`, `feedback`, `guest_credits`, and the atomic credit RPC functions.
 - Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as server-only Vercel environment variables.
 - Store anonymous `guest_id`, event name, path, language, timestamp, and safe event properties.
 - Keep feedback free of private resume content and avoid storing sensitive personal details.
@@ -312,7 +314,7 @@ AI_MODEL=gpt-5-mini
 # Leave OPENAI_API_KEY and DEEPSEEK_API_KEY unset
 ```
 
-Optional for persistent validation feedback and product events:
+Optional for persistent validation feedback, product events, and guest credits:
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
@@ -343,9 +345,9 @@ pnpm build
 
 ## Roadmap
 
-- Supabase persistence for feedback, product events, jobs, candidate profile, analysis cache, and guest credits
+- Supabase persistence for jobs, candidate profile, and analysis cache
 - Login system
-- Persistent guest credits
+- Admin view for feedback, product events, and guest credit usage
 - Resume tailoring workspace
 - Calendar reminders
 - Mobile app wrapper / PWA improvements
