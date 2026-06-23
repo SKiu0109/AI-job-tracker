@@ -45,6 +45,7 @@ After the visual refresh, retake screenshots so the portfolio shows the current 
 - Demo sample data for review without calling the AI API
 - Demo Mode indicator when real AI analysis is unavailable
 - Anonymous guest credits for controlled public demo usage
+- Feedback page and lightweight product event tracking for validation MVP learning
 - Mobile card layout for job records while keeping the desktop spreadsheet table
 - Basic PWA manifest and install metadata
 - Server-only AI provider abstraction for OpenAI-compatible providers including OpenAI and DeepSeek
@@ -68,8 +69,12 @@ flowchart TD
   Browser --> CreditsAPI["/api/credits\nGuest session + credit status"]
   Browser --> AnalyzeAPI["/api/analyze-job\nValidation, cache, credits"]
   Browser --> ResumeAPI["/api/analyze-resume\nResume text extraction"]
+  Browser --> EventsAPI["/api/product-events\nLightweight event tracking"]
+  Browser --> FeedbackAPI["/api/feedback\nUser feedback collection"]
   CreditsAPI --> CreditService["Credits service abstraction\nCurrent: in-memory mock store"]
   AnalyzeAPI --> ServerCache["Server analysis cache\nCurrent: in-memory cache"]
+  EventsAPI --> ValidationStore["Product validation store\nCurrent: in-memory mock store"]
+  FeedbackAPI --> ValidationStore
   AnalyzeAPI --> Provider["OpenAI-compatible provider\nOpenAI or DeepSeek"]
   ResumeAPI --> Provider
   Provider --> Env["Server-only env vars\nAI_PROVIDER, AI_MODEL, API keys"]
@@ -198,6 +203,28 @@ Current implementation:
 - The current adapter is an in-memory mock store suitable for local development and lightweight demos.
 
 Production limitation: in-memory credits are not durable across Vercel serverless instance restarts or multiple regions. Plug in Supabase, Vercel KV, or Upstash Redis before relying on credits for production-grade enforcement.
+
+## Validation MVP Layer
+
+The next product phase is focused on learning from real users before adding heavier features.
+
+Current implementation:
+
+- A `/feedback` page collects structured qualitative feedback from reviewers and early users.
+- `/api/feedback` validates submissions server-side and records them through a product validation service abstraction.
+- `/api/product-events` accepts lightweight product events for key actions such as loading demo data, clicking Analyze JD, exporting CSV, opening job details, and saving analyzed jobs.
+- Client-side event tracking is fire-and-forget. If the request fails, recent events are queued in local storage so the product flow is not blocked.
+
+Current limitation:
+
+- Feedback and product events use an in-memory mock store and server logs. This is useful for local validation and implementation shape, but it is not durable on Vercel serverless infrastructure.
+
+Recommended production upgrade:
+
+- Add Supabase tables for `product_events` and `feedback`.
+- Store anonymous `guest_id`, event name, path, language, timestamp, and safe event properties.
+- Keep feedback free of private resume content and avoid storing sensitive personal details.
+- Add an admin-only export or dashboard after enough early feedback exists.
 
 ## Mobile and PWA
 

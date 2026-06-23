@@ -117,6 +117,28 @@ export const dictionary = {
       "Your 10 free guest credits have been used. You can still use sample data, dashboard analytics, and cached analyses.",
     creditsUnavailable:
       "Credits are temporarily unavailable. Please try again in a moment.",
+    feedbackEyebrow: "Product feedback",
+    feedbackTitle: "Help shape the validation MVP",
+    feedbackIntro:
+      "Tell us where this workflow helps or breaks. The next product phase is focused on real user validation, clearer AI recommendations, and persistent data.",
+    feedbackRoleLabel: "Your background",
+    feedbackRolePlaceholder:
+      "International student, business analyst applicant, career coach...",
+    feedbackGoalLabel: "What were you trying to do?",
+    feedbackGoalPlaceholder:
+      "Example: I wanted to decide whether a risk analyst role was worth applying to.",
+    feedbackBodyLabel: "What should be improved?",
+    feedbackBodyPlaceholder:
+      "Share what was confusing, missing, useful, or not trustworthy enough.",
+    feedbackEmailLabel: "Email (optional)",
+    feedbackEmailPlaceholder: "you@example.com",
+    feedbackRatingLabel: "Usefulness",
+    feedbackSubmit: "Send feedback",
+    feedbackSubmitting: "Sending...",
+    feedbackSuccess: "Thanks. Your feedback was recorded for product validation.",
+    feedbackError: "Feedback could not be saved. Please try again.",
+    feedbackPrivacy:
+      "This demo stores feedback in a lightweight validation layer for now. Do not include private resume details.",
     rawJdTooShort:
       "Please paste a more complete job description before analyzing.",
     rawJdTooLong:
@@ -152,6 +174,7 @@ export const dictionary = {
     subtitle: "AI job search analytics for international students",
     dashboard: "Dashboard",
     profile: "Profile",
+    feedback: "Feedback",
     jobList: "Job Tracker",
     addJob: "Analyze JD",
     analyzeAJd: "Analyze a JD",
@@ -381,6 +404,27 @@ export const dictionary = {
     creditsExhausted:
       "你的 10 次免费访客额度已用完。你仍然可以使用示例数据、仪表盘和已缓存分析。",
     creditsUnavailable: "暂时无法读取访客额度，请稍后再试。",
+    feedbackEyebrow: "产品反馈",
+    feedbackTitle: "帮助我们验证下一版 MVP",
+    feedbackIntro:
+      "请告诉我们这个流程哪里有帮助、哪里会卡住。下一阶段会重点改进真实用户验证、AI 建议清晰度和数据持久化。",
+    feedbackRoleLabel: "你的背景",
+    feedbackRolePlaceholder: "国际学生、商业分析求职者、职业顾问...",
+    feedbackGoalLabel: "你刚才想完成什么？",
+    feedbackGoalPlaceholder:
+      "例如：我想判断一个风险分析岗位是否值得申请。",
+    feedbackBodyLabel: "你希望我们改进什么？",
+    feedbackBodyPlaceholder:
+      "可以写下让你困惑、缺失、有用或不够可信的地方。",
+    feedbackEmailLabel: "邮箱（可选）",
+    feedbackEmailPlaceholder: "you@example.com",
+    feedbackRatingLabel: "有用程度",
+    feedbackSubmit: "提交反馈",
+    feedbackSubmitting: "提交中...",
+    feedbackSuccess: "谢谢。你的反馈已记录，用于产品验证。",
+    feedbackError: "暂时无法保存反馈，请稍后再试。",
+    feedbackPrivacy:
+      "当前 demo 会把反馈记录到轻量验证层。请不要填写私人简历细节。",
     rawJdTooShort: "请粘贴更完整的岗位描述后再分析。",
     rawJdTooLong: "岗位描述过长，请控制在 12,000 个字符以内。",
     jdLengthHelper: "JD 长度限制：80 到 12,000 个字符。",
@@ -411,6 +455,7 @@ export const dictionary = {
     subtitle: "面向国际学生的 AI 求职分析平台",
     dashboard: "数据看板",
     profile: "候选人画像",
+    feedback: "反馈",
     jobList: "求职追踪表",
     addJob: "分析 JD",
     analyzeAJd: "分析 JD",

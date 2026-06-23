@@ -9,6 +9,7 @@ import { Input, Select } from "@/components/ui/form-controls";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { StatusSelect } from "@/components/jobs/status-select";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { trackProductEvent } from "@/lib/product/analytics";
 import { formatDate } from "@/lib/utils";
 import { loadJobs, saveJobs, updateStoredJobStatus } from "@/lib/storage/jobs";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
@@ -153,6 +154,10 @@ export default function JobListPage() {
     saveJobs(SAMPLE_JOBS);
     setJobs(loadJobs());
     setMessage(t.sampleDataLoaded);
+    trackProductEvent("demo_sample_loaded", {
+      jobCount: SAMPLE_JOBS.length,
+      source: "tracker"
+    });
   };
 
   const handleToggleJob = (jobId: string, checked: boolean) => {
@@ -195,6 +200,23 @@ export default function JobListPage() {
     const exportJobs = selectedJobs.length ? selectedJobs : filteredJobs;
     exportJobsToCsv(exportJobs);
     setMessage(t.exportSuccess);
+    trackProductEvent("csv_exported", {
+      jobCount: exportJobs.length,
+      selectedOnly: selectedJobs.length > 0
+    });
+  };
+
+  const handleAnalyzeJdClick = () => {
+    trackProductEvent("analyze_jd_clicked", { source: "tracker" });
+  };
+
+  const handleOpenJobDetail = (job: JobRecord) => {
+    trackProductEvent("job_detail_opened", {
+      jobId: job.id,
+      matchScore: job.match_score,
+      status: job.application_status
+    });
+    router.push(`/jobs/${job.id}`);
   };
 
   const resetFilters = () => {
@@ -230,7 +252,9 @@ export default function JobListPage() {
                 <Button variant="secondary" onClick={handleLoadSampleData}>
                   {t.tryDemo}
                 </Button>
-                <ButtonLink href="/add">{t.analyzeAJd}</ButtonLink>
+                <ButtonLink href="/add" onClick={handleAnalyzeJdClick}>
+                  {t.analyzeAJd}
+                </ButtonLink>
               </div>
               <p className="mt-5 text-sm font-semibold text-muted">
                 {t.productTrustLine}
@@ -272,7 +296,11 @@ export default function JobListPage() {
             {t.clickRowsHint}
           </p>
         </div>
-        <ButtonLink href="/add" variant="secondary">
+        <ButtonLink
+          href="/add"
+          variant="secondary"
+          onClick={handleAnalyzeJdClick}
+        >
           {t.emptyAction}
         </ButtonLink>
       </div>
@@ -359,7 +387,11 @@ export default function JobListPage() {
           <Button variant="secondary" onClick={handleExportCsv}>
             {t.exportCsv}
           </Button>
-          <ButtonLink href="/add" className="w-full lg:w-auto">
+          <ButtonLink
+            href="/add"
+            className="w-full lg:w-auto"
+            onClick={handleAnalyzeJdClick}
+          >
             {t.addJobAction}
           </ButtonLink>
         </div>
@@ -437,7 +469,9 @@ export default function JobListPage() {
               {t.emptyBody}
             </p>
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/add">{t.emptyAction}</ButtonLink>
+              <ButtonLink href="/add" onClick={handleAnalyzeJdClick}>
+                {t.emptyAction}
+              </ButtonLink>
               <Button variant="secondary" onClick={handleLoadSampleData}>
                 {t.loadSampleData}
               </Button>
@@ -496,7 +530,7 @@ export default function JobListPage() {
                     onCheckedChange={(checked) =>
                       handleToggleJob(job.id, checked)
                     }
-                    onOpen={() => router.push(`/jobs/${job.id}`)}
+                    onOpen={() => handleOpenJobDetail(job)}
                     labels={{
                       matchScore: t.matchScore,
                       recommendation: t.recommendation,
@@ -553,7 +587,7 @@ export default function JobListPage() {
                   filteredJobs.map((job) => (
                     <tr
                       key={job.id}
-                      onClick={() => router.push(`/jobs/${job.id}`)}
+                      onClick={() => handleOpenJobDetail(job)}
                       className="group cursor-pointer border-b border-line transition duration-200 last:border-b-0 hover:bg-surface-muted"
                     >
                       <td

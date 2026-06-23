@@ -10,6 +10,7 @@ import {
 } from "@/lib/credits/constants";
 import { useGuestCredits } from "@/lib/credits/guest-credits-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { trackProductEvent } from "@/lib/product/analytics";
 import { SAMPLE_JD, SAMPLE_SOURCE_URL } from "@/lib/sample-jd";
 import { formatCandidateProfile } from "@/lib/candidate-profile";
 import {
@@ -88,6 +89,11 @@ export function AddJobForm({
     setInfo("");
 
     const rawJdText = rawJd.trim();
+    trackProductEvent("analyze_jd_clicked", {
+      source: "add_job_form",
+      jdLength: rawJdText.length,
+      hasSourceUrl: Boolean(sourceUrl.trim())
+    });
 
     if (!rawJdText) {
       setError(t.rawJdRequired);
@@ -122,6 +128,11 @@ export function AddJobForm({
         followUpNotes
       });
       saveJob(job);
+      trackProductEvent("job_added", {
+        cached: true,
+        matchScore: job.match_score,
+        recommendation: job.application_recommendation
+      });
       router.push(`/jobs/${job.id}`);
       return;
     }
@@ -184,6 +195,11 @@ export function AddJobForm({
         followUpNotes
       });
       saveJob(job);
+      trackProductEvent("job_added", {
+        cached: false,
+        matchScore: job.match_score,
+        recommendation: job.application_recommendation
+      });
       router.push(`/jobs/${job.id}`);
     } catch (submitError) {
       setError(
