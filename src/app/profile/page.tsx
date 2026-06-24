@@ -118,6 +118,11 @@ export default function CandidateProfilePage() {
 
       const response = await fetch("/api/analyze-resume", {
         method: "POST",
+        headers: session?.access_token
+          ? {
+              authorization: `Bearer ${session.access_token}`
+            }
+          : undefined,
         body: formData
       });
       const payload = (await response.json().catch(() => ({}))) as ResumeAnalysisResponse;

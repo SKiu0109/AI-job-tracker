@@ -133,7 +133,9 @@ export async function POST(request: Request) {
     });
   }
 
-  const providerStatus = getAiProviderConfigStatus();
+  const providerStatus = getAiProviderConfigStatus({
+    useAdminConfig: isAdmin
+  });
 
   if (!providerStatus.configured) {
     return respond(
@@ -168,7 +170,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const provider = getAiProvider();
+    const provider = getAiProvider({ useAdminConfig: isAdmin });
 
     const analysis = await provider.analyzeJob({
       rawJd,

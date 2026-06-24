@@ -160,10 +160,31 @@ The score should increase when a role fits analytics, product operations, risk, 
 - Anonymous guest credits are checked on the server before real AI analysis runs.
 - Authenticated Free/Paid monthly credits are checked server-side when Supabase Auth is configured.
 - Admin accounts identified by `ADMIN_EMAILS` bypass product credit deduction.
+- Normal users use the default low-cost AI configuration; Admin can use a dedicated server-only provider/model/API key override.
 - Credits are only consumed for successful, uncached JD analyses.
 - Credits are not consumed when the AI call fails, when sample data is loaded, or when a cached duplicate analysis is reused.
 - The source URL is saved only as a reference; the app does not scrape protected job boards.
 - Future production hardening should add IP-based guest creation limits and server-side rate limiting.
+
+## API Key Strategy
+
+Default public-user AI calls use:
+
+```bash
+AI_PROVIDER=openai
+AI_MODEL=gpt-5-mini
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Admin accounts are detected server-side through `ADMIN_EMAILS`. When an Admin is signed in, `/api/analyze-job`, `/api/analyze-resume`, and `/api/credits` can use Admin-only overrides:
+
+```bash
+ADMIN_AI_PROVIDER=openai
+ADMIN_AI_MODEL=gpt-5
+ADMIN_OPENAI_API_KEY=your_admin_openai_api_key_here
+```
+
+If Admin-specific variables are unset, Admin falls back to the default `AI_PROVIDER`, `AI_MODEL`, and provider API key. None of these keys are exposed to browser code.
 
 ## Demo Mode and Sample Data
 
@@ -337,6 +358,18 @@ DeepSeek example:
 AI_PROVIDER=deepseek
 AI_MODEL=deepseek-chat
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
+```
+
+Optional Admin-only override:
+
+```bash
+ADMIN_AI_PROVIDER=openai
+ADMIN_AI_MODEL=gpt-5
+ADMIN_OPENAI_API_KEY=your_admin_openai_api_key_here
+# Or:
+# ADMIN_AI_PROVIDER=deepseek
+# ADMIN_AI_MODEL=deepseek-chat
+# ADMIN_DEEPSEEK_API_KEY=your_admin_deepseek_api_key_here
 ```
 
 Demo Mode setup:

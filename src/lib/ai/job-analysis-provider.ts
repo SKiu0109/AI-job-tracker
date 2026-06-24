@@ -61,9 +61,13 @@ type ProviderConfig = {
   providerName: string;
 };
 
-export function getAiProviderConfigStatus() {
+type ProviderConfigOptions = {
+  useAdminConfig?: boolean;
+};
+
+export function getAiProviderConfigStatus(options: ProviderConfigOptions = {}) {
   try {
-    const config = getProviderConfig();
+    const config = getProviderConfig(options);
 
     return {
       configured: isConfiguredApiKey(config.apiKey),
@@ -73,40 +77,85 @@ export function getAiProviderConfigStatus() {
   } catch {
     return {
       configured: false,
-      provider: process.env.AI_PROVIDER || "openai"
+      provider: getProviderName(options.useAdminConfig)
     };
   }
 }
 
-export function getAiProvider(): AiProvider {
-  return new ChatCompletionsJobAnalysisProvider(getProviderConfig());
+export function getAiProvider(options: ProviderConfigOptions = {}): AiProvider {
+  return new ChatCompletionsJobAnalysisProvider(getProviderConfig(options));
 }
 
-function getProviderConfig(): ProviderConfig {
-  const provider = process.env.AI_PROVIDER || "openai";
+function getProviderConfig(options: ProviderConfigOptions = {}): ProviderConfig {
+  const provider = getProviderName(options.useAdminConfig);
 
   switch (provider.toLowerCase()) {
     case "openai":
       return {
-        apiKey: process.env.OPENAI_API_KEY,
-        apiKeyEnvName: "OPENAI_API_KEY",
+        apiKey: getApiKey("openai", options.useAdminConfig),
+        apiKeyEnvName: getApiKeyEnvName("openai", options.useAdminConfig),
         endpoint: "https://api.openai.com/v1/chat/completions",
         maxTokensField: "max_completion_tokens",
-        model: process.env.AI_MODEL || "gpt-5-mini",
+        model: getModel("gpt-5-mini", options.useAdminConfig),
         providerName: "OpenAI"
       };
     case "deepseek":
       return {
-        apiKey: process.env.DEEPSEEK_API_KEY,
-        apiKeyEnvName: "DEEPSEEK_API_KEY",
+        apiKey: getApiKey("deepseek", options.useAdminConfig),
+        apiKeyEnvName: getApiKeyEnvName("deepseek", options.useAdminConfig),
         endpoint: "https://api.deepseek.com/chat/completions",
         maxTokensField: "max_tokens",
-        model: process.env.AI_MODEL || "deepseek-chat",
+        model: getModel("deepseek-chat", options.useAdminConfig),
         providerName: "DeepSeek"
       };
     default:
       throw new Error(`Unsupported AI_PROVIDER: ${provider}`);
   }
+}
+
+function getProviderName(useAdminConfig?: boolean) {
+  return (
+    (useAdminConfig ? process.env.ADMIN_AI_PROVIDER : undefined) ||
+    process.env.AI_PROVIDER ||
+    "openai"
+  );
+}
+
+function getModel(defaultModel: string, useAdminConfig?: boolean) {
+  return (
+    (useAdminConfig ? process.env.ADMIN_AI_MODEL : undefined) ||
+    process.env.AI_MODEL ||
+    defaultModel
+  );
+}
+
+function getApiKey(provider: "openai" | "deepseek", useAdminConfig?: boolean) {
+  if (provider === "openai") {
+    return (
+      (useAdminConfig ? process.env.ADMIN_OPENAI_API_KEY : undefined) ||
+      process.env.OPENAI_API_KEY
+    );
+  }
+
+  return (
+    (useAdminConfig ? process.env.ADMIN_DEEPSEEK_API_KEY : undefined) ||
+    process.env.DEEPSEEK_API_KEY
+  );
+}
+
+function getApiKeyEnvName(
+  provider: "openai" | "deepseek",
+  useAdminConfig?: boolean
+) {
+  if (provider === "openai") {
+    return useAdminConfig && process.env.ADMIN_OPENAI_API_KEY
+      ? "ADMIN_OPENAI_API_KEY"
+      : "OPENAI_API_KEY";
+  }
+
+  return useAdminConfig && process.env.ADMIN_DEEPSEEK_API_KEY
+    ? "ADMIN_DEEPSEEK_API_KEY"
+    : "DEEPSEEK_API_KEY";
 }
 
 class ChatCompletionsJobAnalysisProvider implements AiProvider {

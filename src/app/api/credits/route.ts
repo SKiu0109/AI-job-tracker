@@ -26,10 +26,11 @@ export async function GET(request: NextRequest) {
   const authUser = await verifySupabaseAccessToken(
     getBearerToken(request.headers.get("authorization"))
   );
+  const isAdmin = isAdminEmail(authUser?.email);
   const credits = authUser
     ? await getAuthenticatedCredits(authUser.id, authUser.email)
     : await getCreditsService().getBalance(guestSession.guestId);
-  const ai = getAiProviderConfigStatus();
+  const ai = getAiProviderConfigStatus({ useAdminConfig: isAdmin });
   const payload: CreditsStatusResponse = {
     credits: {
       remaining: credits.remaining,
