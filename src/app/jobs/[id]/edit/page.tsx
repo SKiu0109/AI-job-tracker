@@ -126,7 +126,7 @@ export default function EditJobPage() {
 
     deleteStoredJob(params.id);
     void deleteCloudJob(session, params.id);
-    router.push("/");
+    router.push("/workspace");
   };
 
   if (!isLoaded) {
@@ -142,7 +142,7 @@ export default function EditJobPage() {
       <div className="rounded-panel border border-line bg-white p-8 text-center shadow-panel">
         <h1 className="text-xl font-semibold text-ink">{t.notFound}</h1>
         <p className="mt-2 text-sm text-muted">{t.notFoundBody}</p>
-        <ButtonLink href="/" className="mt-5">
+        <ButtonLink href="/workspace" className="mt-5">
           {t.backToList}
         </ButtonLink>
       </div>

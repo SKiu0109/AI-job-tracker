@@ -64,7 +64,7 @@ export default function JobDetailPage() {
 
     deleteStoredJob(params.id);
     void deleteCloudJob(session, params.id);
-    router.push("/");
+    router.push("/workspace");
   };
 
   if (!isLoaded) {
@@ -80,7 +80,7 @@ export default function JobDetailPage() {
       <div className="rounded-panel border border-line bg-white p-8 text-center shadow-panel">
         <h1 className="text-xl font-semibold text-ink">{t.notFound}</h1>
         <p className="mt-2 text-sm text-muted">{t.notFoundBody}</p>
-        <ButtonLink href="/" className="mt-5">
+        <ButtonLink href="/workspace" className="mt-5">
           {t.backToList}
         </ButtonLink>
       </div>
@@ -101,7 +101,10 @@ export default function JobDetailPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/" className="text-sm font-semibold text-accent hover:underline">
+        <Link
+          href="/workspace"
+          className="text-sm font-semibold text-accent hover:underline"
+        >
           {t.backToList}
         </Link>
         <div className="flex flex-wrap gap-2">

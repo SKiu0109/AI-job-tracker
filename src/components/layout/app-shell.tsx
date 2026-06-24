@@ -52,10 +52,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <nav className="grid w-full grid-cols-4 rounded-app border border-line bg-surface-muted p-1 shadow-soft sm:flex sm:w-auto lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
               <Link
-                href="/"
+                href="/workspace"
                 className={cn(
                   "relative rounded-md px-3 py-2 text-center text-sm font-semibold transition duration-200 sm:py-1.5 lg:rounded-none lg:px-4 lg:after:absolute lg:after:inset-x-4 lg:after:-bottom-3 lg:after:h-0.5 lg:after:rounded-full lg:after:transition",
-                  pathname === "/"
+                  pathname === "/workspace"
                     ? "bg-white text-ink shadow-soft lg:bg-transparent lg:shadow-none lg:after:bg-accent"
                     : "text-muted hover:bg-white/70 hover:text-ink lg:hover:bg-transparent lg:after:bg-transparent"
                 )}

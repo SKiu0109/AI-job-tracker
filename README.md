@@ -19,8 +19,9 @@ Screenshots are not committed yet. Recommended portfolio screenshots:
 - Job detail analysis page
 - Candidate profile page
 - Demo Mode and guest credits banner
+- Landing/about page with a demo-mode entry point
 
-After the visual refresh, retake screenshots so the portfolio shows the current polished navigation, compact tracker intro, refined table, mobile cards, and dashboard/detail hierarchy.
+After the visual refresh, retake screenshots so the portfolio shows the landing/about page, demo entry point, workspace tracker, mobile cards, and dashboard/detail hierarchy.
 
 ## Target Users
 
@@ -30,7 +31,8 @@ After the visual refresh, retake screenshots so the portfolio shows the current 
 
 ## Key Features
 
-- Spreadsheet-style job tracker with search, filters, sorting, clickable rows, row hover states, and status updates
+- Landing/about page at `/` for product positioning and demo entry
+- Workspace tracker at `/workspace` with search, filters, sorting, clickable rows, row hover states, and status updates
 - Multi-select jobs, batch status update, batch delete with confirmation, and CSV export
 - Filters for high-match jobs, jobs needing action, and approaching deadlines
 - Add Job workflow for source URL, pasted JD text, deadline, channel, contacts, interview date, notes, and follow-up notes
@@ -65,7 +67,7 @@ After the visual refresh, retake screenshots so the portfolio shows the current 
 
 ```mermaid
 flowchart TD
-  Browser["Browser UI\nTracker, Dashboard, Profile, Add JD"] --> LocalStorage["Local storage\nJobs, profile, client analysis cache"]
+  Browser["Browser UI\nLanding, Workspace, Dashboard, Profile, Add JD"] --> LocalStorage["Local storage\nJobs, profile, client analysis cache"]
   Browser --> CreditsAPI["/api/credits\nGuest/user/admin credit status"]
   Browser --> AnalyzeAPI["/api/analyze-job\nValidation, cache, credits"]
   Browser --> ResumeAPI["/api/analyze-resume\nResume text extraction"]
@@ -200,8 +202,8 @@ Demo mode is active. You can explore sample jobs, dashboard analytics, and profi
 
 In Demo Mode, reviewers can:
 
-1. Open the tracker.
-2. Click `Load sample data`.
+1. Open the landing/about page at `/`.
+2. Click `Try Demo` to load sample data and enter `/workspace`.
 3. Review the dashboard, tracker, job detail page, profile page, edit flow, filters, batch actions, CSV export, and timeline.
 
 You can also test the Add Job workflow with:
@@ -313,7 +315,7 @@ Open [http://localhost:3000](http://localhost:3000).
 Recommended public portfolio setup:
 
 - Leave `OPENAI_API_KEY` and `DEEPSEEK_API_KEY` unset for a safe Demo Mode deployment.
-- Use sample data to let reviewers explore the tracker, dashboard, job detail page, candidate profile, edit flow, and CSV export.
+- Use the landing page `Try Demo` action to let reviewers load sample data and explore the workspace, dashboard, job detail page, candidate profile, edit flow, and CSV export.
 - Add an API key only when you are ready to pay for real public AI usage.
 
 Cost warning: if real AI analysis is enabled on a public deployment, visitors can trigger provider calls. Guest credits and JD limits reduce risk, but persistent storage and server-side rate limiting should be added before broad public launch.

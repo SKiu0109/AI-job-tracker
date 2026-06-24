@@ -150,6 +150,32 @@ export const dictionary = {
       "Bilingual AI job search analytics for international students.",
     trackerHeroBody:
       "Analyze English job descriptions, understand your fit in Chinese, identify skill gaps, and manage applications in one workspace.",
+    landingTitle: "AI Job Tracker",
+    landingSubtitle:
+      "A bilingual AI job search analytics workspace for Chinese-speaking international students. Understand fit, prioritize applications, and keep every next step visible.",
+    openWorkspace: "Open Workspace",
+    landingTrustLocal: "Local-first demo",
+    landingTrustBilingual: "English / Chinese insights",
+    landingTrustControlled: "Credits and cost controls",
+    landingWhyTitle: "From job tracker to application decision system",
+    landingWhyBody:
+      "The product turns scattered job descriptions into structured decisions: match score, evidence, risks, next action, and profile-aware resume focus.",
+    landingValueFit: "Understand fit",
+    landingValueFitBody:
+      "See match score, JD evidence, candidate gaps, and bilingual explanations in one place.",
+    landingValueAction: "Prioritize action",
+    landingValueActionBody:
+      "Separate strong applications from low-priority roles and keep deadlines, status, and next steps visible.",
+    landingValuePortfolio: "Show product thinking",
+    landingValuePortfolioBody:
+      "A controlled public demo with sample data, credits, cloud-ready accounts, and clear AI cost safeguards.",
+    landingDemoTitle: "Demo mode starts here",
+    landingDemoBody:
+      "Load sample jobs from this page and enter the workspace without signing in or configuring an API key.",
+    landingDemoStep1: "Load realistic sample jobs into the tracker.",
+    landingDemoStep2: "Explore dashboard analytics, job detail pages, profile, editing, and CSV export.",
+    landingDemoStep3:
+      "Configure an API key later when you want to run real AI JD analysis.",
     tryDemo: "Try Demo",
     productTrustLine:
       "Local-first · Bilingual · AI-powered job fit analysis · No login required",
@@ -459,6 +485,31 @@ export const dictionary = {
     trackerHeroSubtitle: "为国际学生打造的双语 AI 求职分析工作台。",
     trackerHeroBody:
       "解析英文 JD，用中文理解岗位匹配度，识别技能差距，并统一管理求职进度。",
+    landingTitle: "AI 求职追踪器",
+    landingSubtitle:
+      "面向中文背景国际学生的双语 AI 求职分析工作台。理解岗位匹配度，判断申请优先级，并清晰管理每一步行动。",
+    openWorkspace: "进入工作台",
+    landingTrustLocal: "本地优先演示",
+    landingTrustBilingual: "中英文双语洞察",
+    landingTrustControlled: "额度与成本控制",
+    landingWhyTitle: "从求职表格到申请决策系统",
+    landingWhyBody:
+      "产品把分散的岗位描述转化为结构化决策：匹配度、证据、风险、下一步行动，以及结合候选人画像的简历优化重点。",
+    landingValueFit: "理解匹配度",
+    landingValueFitBody:
+      "集中查看匹配分数、JD 证据、候选人差距和中英文解释。",
+    landingValueAction: "判断优先级",
+    landingValueActionBody:
+      "区分强烈建议申请和低优先级岗位，同时跟踪截止日期、状态和下一步行动。",
+    landingValuePortfolio: "展示产品思维",
+    landingValuePortfolioBody:
+      "一个可公开演示的受控 demo，包含示例数据、额度系统、云端账号结构和清晰的 AI 成本保护。",
+    landingDemoTitle: "从这里进入演示模式",
+    landingDemoBody:
+      "在展示页直接加载示例岗位并进入工作台，无需登录，也无需配置 API Key。",
+    landingDemoStep1: "把真实感示例岗位加载到追踪表。",
+    landingDemoStep2: "查看仪表盘分析、岗位详情、候选人画像、编辑流程和 CSV 导出。",
+    landingDemoStep3: "之后如需真实 AI JD 分析，再配置 API Key。",
     tryDemo: "体验示例",
     productTrustLine: "本地优先 · 中英双语 · AI 岗位匹配分析 · 无需登录",
     jobDescriptionPreview: "岗位描述",

@@ -55,7 +55,7 @@ export default function LoginPage() {
         setMessage(t.authCheckEmail);
       } else {
         await refreshAccountStatus();
-        router.push("/");
+        router.push("/workspace");
       }
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : t.authFailed);
