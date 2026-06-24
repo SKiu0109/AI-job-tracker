@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode
 } from "react";
+import { useAuth } from "@/lib/auth/auth-provider";
 import type { CreditBalance, CreditsStatusResponse } from "@/types/credits";
 
 type GuestCreditsContextValue = {
@@ -21,11 +22,13 @@ type GuestCreditsContextValue = {
 const GuestCreditsContext = createContext<GuestCreditsContextValue | null>(null);
 
 export function GuestCreditsProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
+  const accessToken = session?.access_token ?? null;
   const [status, setStatus] = useState<CreditsStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshCredits = useCallback(async () => {
-    const payload = await fetchCreditsStatus();
+    const payload = await fetchCreditsStatus(accessToken);
 
     if (payload) {
       setStatus(payload);
@@ -33,7 +36,7 @@ export function GuestCreditsProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(false);
     return payload;
-  }, []);
+  }, [accessToken]);
 
   const updateCredits = useCallback((credits: CreditBalance) => {
     setStatus((current) =>
@@ -49,7 +52,7 @@ export function GuestCreditsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isCurrent = true;
 
-    fetchCreditsStatus()
+    fetchCreditsStatus(accessToken)
       .then((payload) => {
         if (isCurrent && payload) {
           setStatus(payload);
@@ -64,7 +67,7 @@ export function GuestCreditsProvider({ children }: { children: ReactNode }) {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [accessToken]);
 
   const value = useMemo(
     () => ({
@@ -93,10 +96,15 @@ export function useGuestCredits() {
   return context;
 }
 
-async function fetchCreditsStatus() {
+async function fetchCreditsStatus(accessToken: string | null) {
   try {
     const response = await fetch("/api/credits", {
-      cache: "no-store"
+      cache: "no-store",
+      headers: accessToken
+        ? {
+            authorization: `Bearer ${accessToken}`
+          }
+        : undefined
     });
 
     if (!response.ok) {

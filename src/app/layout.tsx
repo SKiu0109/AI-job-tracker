@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
+import { AuthProvider } from "@/lib/auth/auth-provider";
 import { GuestCreditsProvider } from "@/lib/credits/guest-credits-provider";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { LANGUAGE_COOKIE_KEY } from "@/lib/i18n/constants";
@@ -44,9 +45,11 @@ export default async function RootLayout({
     <html lang={initialLanguage === "zh" ? "zh-CN" : "en"}>
       <body>
         <LanguageProvider initialLanguage={initialLanguage}>
-          <GuestCreditsProvider>
-            <AppShell>{children}</AppShell>
-          </GuestCreditsProvider>
+          <AuthProvider>
+            <GuestCreditsProvider>
+              <AppShell>{children}</AppShell>
+            </GuestCreditsProvider>
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>

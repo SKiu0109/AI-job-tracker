@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { LanguageToggle } from "@/components/layout/language-toggle";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useGuestCredits } from "@/lib/credits/guest-credits-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { trackProductEvent } from "@/lib/product/analytics";
@@ -12,8 +13,11 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { accountStatus, signOut } = useAuth();
   const { status } = useGuestCredits();
-  const creditsLabel = status
+  const creditsLabel = accountStatus.credits.adminBypass
+    ? t.adminCreditsLabel
+    : status
     ? formatTemplate(t.creditsRemaining, {
         remaining: status.credits.remaining,
         limit: status.credits.limit
@@ -106,9 +110,34 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {creditsLabel}
                 </span>
               ) : null}
-              <span className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-muted text-xs font-semibold text-muted shadow-soft sm:inline-flex">
-                AI
+              <span className="inline-flex min-h-9 items-center rounded-app border border-line bg-surface-muted px-3 text-xs font-semibold text-muted shadow-soft sm:text-sm">
+                {accountStatus.isAdmin
+                  ? t.adminAccount
+                  : accountStatus.isAuthenticated
+                    ? t.freeAccount
+                    : t.guestAccount}
               </span>
+              {accountStatus.isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className="inline-flex min-h-9 items-center justify-center rounded-app border border-line bg-white px-3 text-xs font-semibold text-muted shadow-soft transition hover:border-line-strong hover:bg-surface-muted sm:text-sm"
+                >
+                  {t.signOut}
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  className={cn(
+                    "inline-flex min-h-9 items-center justify-center rounded-app border px-3 text-xs font-semibold shadow-soft transition sm:text-sm",
+                    pathname === "/login"
+                      ? "border-accent bg-accent text-white"
+                      : "border-line bg-white text-muted hover:border-line-strong hover:bg-surface-muted"
+                  )}
+                >
+                  {t.signIn}
+                </Link>
+              )}
             </div>
         </div>
       </header>

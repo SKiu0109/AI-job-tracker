@@ -4,7 +4,10 @@ import {
   getAiProvider,
   getAiProviderConfigStatus
 } from "@/lib/ai/job-analysis-provider";
+import { isAdminEmail } from "@/lib/auth/admin";
+import { getBearerToken, verifySupabaseAccessToken } from "@/lib/auth/server-auth";
 import { JD_ANALYSIS_CREDIT_COST } from "@/lib/credits/constants";
+import { getOrCreateUserAccount } from "@/lib/server/account-service";
 import {
   createServerAnalysisCacheKey,
   readServerCachedAnalysis,
@@ -16,6 +19,10 @@ import {
   getOrCreateGuestSession,
   GUEST_ID_COOKIE
 } from "@/lib/server/guest-session";
+import {
+  createAdminCreditBalance,
+  getUserCreditsService
+} from "@/lib/server/user-credits-service";
 import { validateRawJd } from "@/lib/validation/job-analysis";
 import type { CreditBalance } from "@/types/credits";
 
@@ -31,6 +38,11 @@ type BilingualMessage = {
   en: string;
   zh: string;
 };
+
+type CreditReservation =
+  | { kind: "admin"; balance: CreditBalance }
+  | { kind: "user"; userId: string; monthlyLimit: number; balance: CreditBalance }
+  | { kind: "guest"; guestId: string; balance: CreditBalance };
 
 const ERROR_MESSAGES = {
   invalid_json: {
@@ -83,7 +95,23 @@ export async function POST(request: Request) {
     cookieStore.get(GUEST_ID_COOKIE)?.value
   );
   const creditsService = getCreditsService();
-  const currentCredits = await creditsService.getBalance(guestSession.guestId);
+  const authUser = await verifySupabaseAccessToken(
+    getBearerToken(request.headers.get("authorization"))
+  );
+  const isAdmin = isAdminEmail(authUser?.email);
+  const userAccount =
+    authUser && !isAdmin
+      ? await getOrCreateUserAccount(authUser.id, authUser.email)
+      : null;
+  const userCreditsService = getUserCreditsService();
+  const currentCredits = isAdmin
+    ? createAdminCreditBalance()
+    : authUser && userAccount
+      ? await userCreditsService.getBalance(
+          authUser.id,
+          userAccount.monthlyCreditLimit
+        )
+      : await creditsService.getBalance(guestSession.guestId);
   const respond = (
     payload: Record<string, unknown>,
     init?: ResponseInit
@@ -119,12 +147,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const reservedCredits = await creditsService.trySpend(
-    guestSession.guestId,
-    JD_ANALYSIS_CREDIT_COST
-  );
+  const reservation = await reserveCredit({
+    authUser,
+    currentCredits,
+    guestId: guestSession.guestId,
+    isAdmin,
+    monthlyLimit: userAccount?.monthlyCreditLimit
+  });
 
-  if (!reservedCredits) {
+  if (!reservation) {
     return respond(
       {
         code: "credits_exhausted",
@@ -150,10 +181,17 @@ export async function POST(request: Request) {
     return respond({
       analysis,
       cached: false,
-      credits: toPublicCredits(await creditsService.getBalance(guestSession.guestId))
+      credits: toPublicCredits(
+        await getLatestCredits({
+          authUser,
+          guestId: guestSession.guestId,
+          isAdmin,
+          monthlyLimit: userAccount?.monthlyCreditLimit
+        })
+      )
     });
   } catch (error) {
-    await creditsService.refund(guestSession.guestId, JD_ANALYSIS_CREDIT_COST);
+    await refundReservation(reservation);
 
     if (isMissingApiKeyError(error)) {
       return respond(
@@ -161,7 +199,14 @@ export async function POST(request: Request) {
           code: "missing_api_key",
           error: ERROR_MESSAGES.missing_api_key.en,
           message: ERROR_MESSAGES.missing_api_key,
-          credits: toPublicCredits(await creditsService.getBalance(guestSession.guestId))
+          credits: toPublicCredits(
+            await getLatestCredits({
+              authUser,
+              guestId: guestSession.guestId,
+              isAdmin,
+              monthlyLimit: userAccount?.monthlyCreditLimit
+            })
+          )
         },
         { status: 503 }
       );
@@ -174,7 +219,14 @@ export async function POST(request: Request) {
         code: "analysis_failed",
         error: ERROR_MESSAGES.analysis_failed.en,
         message: ERROR_MESSAGES.analysis_failed,
-        credits: toPublicCredits(await creditsService.getBalance(guestSession.guestId))
+        credits: toPublicCredits(
+          await getLatestCredits({
+            authUser,
+            guestId: guestSession.guestId,
+            isAdmin,
+            monthlyLimit: userAccount?.monthlyCreditLimit
+          })
+        )
       },
       { status: 500 }
     );
@@ -199,6 +251,99 @@ function toPublicCredits(balance: CreditBalance) {
     costPerAnalysis: balance.costPerAnalysis,
     store: balance.store
   };
+}
+
+async function reserveCredit({
+  authUser,
+  currentCredits,
+  guestId,
+  isAdmin,
+  monthlyLimit
+}: {
+  authUser: { id: string } | null;
+  currentCredits: CreditBalance;
+  guestId: string;
+  isAdmin: boolean;
+  monthlyLimit?: number;
+}): Promise<CreditReservation | null> {
+  if (isAdmin) {
+    return {
+      kind: "admin",
+      balance: currentCredits
+    };
+  }
+
+  if (authUser && monthlyLimit !== undefined) {
+    const balance = await getUserCreditsService().trySpend(
+      authUser.id,
+      JD_ANALYSIS_CREDIT_COST,
+      monthlyLimit
+    );
+
+    return balance
+      ? {
+          kind: "user",
+          userId: authUser.id,
+          monthlyLimit,
+          balance
+        }
+      : null;
+  }
+
+  const balance = await getCreditsService().trySpend(
+    guestId,
+    JD_ANALYSIS_CREDIT_COST
+  );
+
+  return balance
+    ? {
+        kind: "guest",
+        guestId,
+        balance
+      }
+    : null;
+}
+
+async function refundReservation(reservation: CreditReservation) {
+  if (reservation.kind === "admin") {
+    return;
+  }
+
+  if (reservation.kind === "user") {
+    await getUserCreditsService().refund(
+      reservation.userId,
+      JD_ANALYSIS_CREDIT_COST,
+      reservation.monthlyLimit
+    );
+    return;
+  }
+
+  await getCreditsService().refund(
+    reservation.guestId,
+    JD_ANALYSIS_CREDIT_COST
+  );
+}
+
+async function getLatestCredits({
+  authUser,
+  guestId,
+  isAdmin,
+  monthlyLimit
+}: {
+  authUser: { id: string } | null;
+  guestId: string;
+  isAdmin: boolean;
+  monthlyLimit?: number;
+}) {
+  if (isAdmin) {
+    return createAdminCreditBalance();
+  }
+
+  if (authUser && monthlyLimit !== undefined) {
+    return getUserCreditsService().getBalance(authUser.id, monthlyLimit);
+  }
+
+  return getCreditsService().getBalance(guestId);
 }
 
 function isMissingApiKeyError(error: unknown) {

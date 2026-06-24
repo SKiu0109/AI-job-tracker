@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/form-controls";
+import { useAuth } from "@/lib/auth/auth-provider";
 import {
   MAX_JD_TEXT_LENGTH,
   MIN_JD_TEXT_LENGTH
@@ -53,6 +54,7 @@ export function AddJobForm({
 }) {
   const router = useRouter();
   const { language, t } = useLanguage();
+  const { accountStatus, session } = useAuth();
   const {
     status: creditsStatus,
     refreshCredits,
@@ -69,7 +71,9 @@ export function AddJobForm({
   const [error, setError] = useState("");
   const [info, setInfo] = useState(samplePrefilled ? t.sampleLoaded : "");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const creditsLabel = creditsStatus
+  const creditsLabel = accountStatus.credits.adminBypass
+    ? t.adminCreditsLabel
+    : creditsStatus
     ? formatTemplate(t.creditsRemaining, {
         remaining: creditsStatus.credits.remaining,
         limit: creditsStatus.credits.limit
@@ -150,6 +154,7 @@ export function AddJobForm({
     }
 
     if (
+      !accountStatus.credits.adminBypass &&
       latestCreditsStatus.credits.remaining <
       latestCreditsStatus.credits.costPerAnalysis
     ) {
@@ -163,7 +168,10 @@ export function AddJobForm({
       const response = await fetch("/api/analyze-job", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { authorization: `Bearer ${session.access_token}` }
+            : {})
         },
         body: JSON.stringify({
           source_url: sourceUrl.trim() || undefined,

@@ -1,7 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAiProviderConfigStatus } from "@/lib/ai/job-analysis-provider";
+import { isAdminEmail } from "@/lib/auth/admin";
+import { getBearerToken, verifySupabaseAccessToken } from "@/lib/auth/server-auth";
 import { getCreditsService } from "@/lib/server/credits-service";
+import { getOrCreateUserAccount } from "@/lib/server/account-service";
+import {
+  createAdminCreditBalance,
+  getUserCreditsService
+} from "@/lib/server/user-credits-service";
 import {
   applyGuestSessionCookie,
   getOrCreateGuestSession,
@@ -11,12 +18,17 @@ import type { CreditsStatusResponse } from "@/types/credits";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const guestSession = getOrCreateGuestSession(
     cookieStore.get(GUEST_ID_COOKIE)?.value
   );
-  const credits = await getCreditsService().getBalance(guestSession.guestId);
+  const authUser = await verifySupabaseAccessToken(
+    getBearerToken(request.headers.get("authorization"))
+  );
+  const credits = authUser
+    ? await getAuthenticatedCredits(authUser.id, authUser.email)
+    : await getCreditsService().getBalance(guestSession.guestId);
   const ai = getAiProviderConfigStatus();
   const payload: CreditsStatusResponse = {
     credits: {
@@ -40,4 +52,13 @@ export async function GET() {
   applyGuestSessionCookie(response, guestSession.guestId);
 
   return response;
+}
+
+async function getAuthenticatedCredits(userId: string, email: string) {
+  if (isAdminEmail(email)) {
+    return createAdminCreditBalance();
+  }
+
+  const account = await getOrCreateUserAccount(userId, email);
+  return getUserCreditsService().getBalance(userId, account.monthlyCreditLimit);
 }

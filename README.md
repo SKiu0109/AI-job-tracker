@@ -66,15 +66,18 @@ After the visual refresh, retake screenshots so the portfolio shows the current 
 ```mermaid
 flowchart TD
   Browser["Browser UI\nTracker, Dashboard, Profile, Add JD"] --> LocalStorage["Local storage\nJobs, profile, client analysis cache"]
-  Browser --> CreditsAPI["/api/credits\nGuest session + credit status"]
+  Browser --> CreditsAPI["/api/credits\nGuest/user/admin credit status"]
   Browser --> AnalyzeAPI["/api/analyze-job\nValidation, cache, credits"]
   Browser --> ResumeAPI["/api/analyze-resume\nResume text extraction"]
+  Browser --> AccountAPI["/api/account/status\nAuth user + account type"]
   Browser --> EventsAPI["/api/product-events\nLightweight event tracking"]
   Browser --> FeedbackAPI["/api/feedback\nUser feedback collection"]
-  CreditsAPI --> CreditService["Credits service abstraction\nSupabase when configured, memory fallback"]
+  CreditsAPI --> CreditService["Credits service abstraction\nGuest + monthly user credits"]
   AnalyzeAPI --> ServerCache["Server analysis cache\nCurrent: in-memory cache"]
   EventsAPI --> ValidationStore["Product validation store\nCurrent: in-memory mock store"]
   FeedbackAPI --> ValidationStore
+  AccountAPI --> SupabaseAuth["Supabase Auth\nEmail / Google login"]
+  AccountAPI --> AccountTables["user_accounts + user_monthly_credits\nFree / Paid structure"]
   AnalyzeAPI --> Provider["OpenAI-compatible provider\nOpenAI or DeepSeek"]
   ResumeAPI --> Provider
   Provider --> Env["Server-only env vars\nAI_PROVIDER, AI_MODEL, API keys"]
@@ -155,6 +158,8 @@ The score should increase when a role fits analytics, product operations, risk, 
 - Re-analyzing the same unchanged JD with the same profile reuses cached analysis.
 - `/api/analyze-job` also checks a server-side cache before calling the AI provider.
 - Anonymous guest credits are checked on the server before real AI analysis runs.
+- Authenticated Free/Paid monthly credits are checked server-side when Supabase Auth is configured.
+- Admin accounts identified by `ADMIN_EMAILS` bypass product credit deduction.
 - Credits are only consumed for successful, uncached JD analyses.
 - Credits are not consumed when the AI call fails, when sample data is loaded, or when a cached duplicate analysis is reused.
 - The source URL is saved only as a reference; the app does not scrape protected job boards.
@@ -206,6 +211,31 @@ Current implementation:
 
 Production limitation: fallback in-memory credits are not durable across Vercel serverless instance restarts or multiple regions. Configure Supabase, Vercel KV, or Upstash Redis before relying on credits for production-grade enforcement.
 
+## Accounts and Auth
+
+The app now includes a Supabase Auth foundation while preserving Guest Demo Mode.
+
+Account types:
+
+- Guest: 10 demo credits, sample data, no required login.
+- Free User: 20 monthly credits, with schema prepared for cloud sync.
+- Paid User: schema is reserved for future higher limits and deeper analysis.
+- Admin: identified by the server-only `ADMIN_EMAILS` environment variable and does not consume product credits.
+
+Current implementation:
+
+- `/login` supports email/password and Google OAuth when Supabase public auth variables are configured.
+- `/api/account/status` verifies a Supabase access token server-side and returns `guest`, `free`, `paid`, or `admin`.
+- `/api/credits` and `/api/analyze-job` accept the Supabase bearer token and use authenticated monthly credits when present.
+- Free/Paid monthly credit spend and refund use Supabase RPC functions for atomic server-side enforcement.
+- Admin status is derived from `ADMIN_EMAILS`, not from browser-editable state.
+- Supabase schema for `user_accounts`, `user_monthly_credits`, `cloud_jobs`, `cloud_candidate_profiles`, and `cloud_analysis_cache` is provided in `supabase/next-phase-auth-cloud.sql`.
+
+Current limitation:
+
+- Jobs, candidate profile, and analysis cache still use local-first browser storage in the UI. The Supabase cloud tables are ready for the next implementation step.
+- Paid User remains a reserved account type; payment and credit-pack purchase flows are not implemented.
+
 ## Validation MVP Layer
 
 The next product phase is focused on learning from real users before adding heavier features.
@@ -226,6 +256,7 @@ Current limitation:
 Optional Supabase setup:
 
 - Run `supabase/validation-mvp.sql` in the Supabase SQL editor. It creates `product_events`, `feedback`, `guest_credits`, and the atomic credit RPC functions.
+- Run `supabase/next-phase-auth-cloud.sql` to create auth-adjacent account, monthly credit, cloud jobs, profile, analysis cache tables, and monthly credit RPC functions.
 - Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as server-only Vercel environment variables.
 - Store anonymous `guest_id`, event name, path, language, timestamp, and safe event properties.
 - Keep feedback free of private resume content and avoid storing sensitive personal details.
@@ -321,7 +352,15 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 ```
 
-Before setting these variables, run `supabase/validation-mvp.sql` in the Supabase SQL editor. `SUPABASE_SERVICE_ROLE_KEY` must remain server-only and must never be prefixed with `NEXT_PUBLIC_`.
+Optional for Supabase Auth login:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key_here
+ADMIN_EMAILS=your-email@example.com
+```
+
+Before setting these variables, run the SQL files in `supabase/` and enable Email and Google providers in the Supabase Dashboard. `SUPABASE_SERVICE_ROLE_KEY` must remain server-only and must never be prefixed with `NEXT_PUBLIC_`.
 
 ## Useful Commands
 
@@ -333,8 +372,8 @@ pnpm build
 ## Limitations
 
 - Local-first persistence; jobs and profile data are stored in the browser.
-- Guest credits need a persistent backend for production-grade enforcement.
-- No login
+- Guest and user credits need Supabase or another persistent backend for production-grade enforcement.
+- Login is basic Supabase Auth; there is no custom account management UI yet.
 - No payment
 - No browser extension
 - No scraping LinkedIn, Seek, Indeed, or other protected job boards
@@ -345,8 +384,10 @@ pnpm build
 
 ## Roadmap
 
-- Supabase persistence for jobs, candidate profile, and analysis cache
-- Login system
+- Supabase cloud sync for jobs, candidate profile, and analysis cache
+- Account management UI and login polish
+- Persistent guest credits across regions
+- Paid User / Pro / Credit Pack structure
 - Admin view for feedback, product events, and guest credit usage
 - Resume tailoring workspace
 - Calendar reminders

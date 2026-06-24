@@ -107,6 +107,7 @@ export const dictionary = {
     demoModeMessage:
       "Demo mode is active. You can explore sample jobs, dashboard analytics, and profile features. Configure an API key to run real AI JD analysis.",
     creditsRemaining: "Credits: {remaining}/{limit}",
+    adminCreditsLabel: "Admin: no product credits charged",
     creditsHelper:
       "Real AI JD analysis uses 1 credit per successful uncached analysis. Sample data and cached analyses do not use credits.",
     realAiReady:
@@ -175,6 +176,29 @@ export const dictionary = {
     dashboard: "Dashboard",
     profile: "Profile",
     feedback: "Feedback",
+    signIn: "Sign in",
+    signUp: "Sign up",
+    signOut: "Sign out",
+    guestAccount: "Guest",
+    freeAccount: "Free",
+    paidAccount: "Paid",
+    adminAccount: "Admin",
+    authEyebrow: "Account",
+    authTitle: "Sign in to sync your job search workspace",
+    authIntro:
+      "Guest mode stays available for sample data. Signing in prepares cloud sync, monthly credits, and admin testing controls.",
+    authNotConfigured:
+      "Supabase Auth is not configured yet. You can still use Guest demo mode and sample data.",
+    authCheckEmail:
+      "Check your email to confirm your account, then return to sign in.",
+    authFailed: "Authentication failed. Please try again.",
+    authSubmitting: "Working...",
+    authSignedInAs: "Signed in as {email}. Account type: {accountType}.",
+    email: "Email",
+    emailPlaceholder: "you@example.com",
+    password: "Password",
+    passwordPlaceholder: "At least 6 characters",
+    continueWithGoogle: "Continue with Google",
     jobList: "Job Tracker",
     addJob: "Analyze JD",
     analyzeAJd: "Analyze a JD",
@@ -395,6 +419,7 @@ export const dictionary = {
     demoModeMessage:
       "当前为演示模式。你可以查看示例岗位、仪表盘分析和候选人画像。如需真实 AI 岗位分析，请配置 API Key。",
     creditsRemaining: "剩余分析额度：{remaining}/{limit}",
+    adminCreditsLabel: "管理员：不消耗产品额度",
     creditsHelper:
       "真实 AI JD 分析每次成功且未命中缓存时消耗 1 个额度；示例数据和缓存结果不消耗额度。",
     realAiReady:
@@ -456,6 +481,28 @@ export const dictionary = {
     dashboard: "数据看板",
     profile: "候选人画像",
     feedback: "反馈",
+    signIn: "登录",
+    signUp: "注册",
+    signOut: "退出",
+    guestAccount: "访客",
+    freeAccount: "免费用户",
+    paidAccount: "付费用户",
+    adminAccount: "管理员",
+    authEyebrow: "账号",
+    authTitle: "登录后同步你的求职工作台",
+    authIntro:
+      "访客模式仍可直接体验示例数据。登录后将为云端同步、每月额度和管理员测试控制做准备。",
+    authNotConfigured:
+      "Supabase Auth 尚未配置。你仍然可以使用访客演示模式和示例数据。",
+    authCheckEmail: "请查看邮箱完成账号确认，然后返回登录。",
+    authFailed: "登录失败，请重试。",
+    authSubmitting: "处理中...",
+    authSignedInAs: "当前登录：{email}。账号类型：{accountType}。",
+    email: "邮箱",
+    emailPlaceholder: "you@example.com",
+    password: "密码",
+    passwordPlaceholder: "至少 6 个字符",
+    continueWithGoogle: "使用 Google 继续",
     jobList: "求职追踪表",
     addJob: "分析 JD",
     analyzeAJd: "分析 JD",
