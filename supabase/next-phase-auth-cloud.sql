@@ -1,5 +1,5 @@
 -- Next phase schema for Supabase Auth, account tiers, monthly credits,
--- and future cloud sync of jobs/profile/analysis cache.
+-- and cloud sync of jobs/profile/analysis cache.
 -- Run after enabling Supabase Auth providers in the Supabase Dashboard.
 
 create table if not exists user_accounts (

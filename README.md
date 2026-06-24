@@ -218,7 +218,7 @@ The app now includes a Supabase Auth foundation while preserving Guest Demo Mode
 Account types:
 
 - Guest: 10 demo credits, sample data, no required login.
-- Free User: 20 monthly credits, with schema prepared for cloud sync.
+- Free User: 20 monthly credits and cloud sync for jobs, profile, and analysis cache.
 - Paid User: schema is reserved for future higher limits and deeper analysis.
 - Admin: identified by the server-only `ADMIN_EMAILS` environment variable and does not consume product credits.
 
@@ -230,10 +230,12 @@ Current implementation:
 - Free/Paid monthly credit spend and refund use Supabase RPC functions for atomic server-side enforcement.
 - Admin status is derived from `ADMIN_EMAILS`, not from browser-editable state.
 - Supabase schema for `user_accounts`, `user_monthly_credits`, `cloud_jobs`, `cloud_candidate_profiles`, and `cloud_analysis_cache` is provided in `supabase/next-phase-auth-cloud.sql`.
+- When signed in, tracker jobs, candidate profile, and client analysis cache sync through Supabase tables protected by RLS.
+- Local storage remains the first-read cache so Guest Demo Mode and offline-ish browsing still work.
 
 Current limitation:
 
-- Jobs, candidate profile, and analysis cache still use local-first browser storage in the UI. The Supabase cloud tables are ready for the next implementation step.
+- Cloud sync is intentionally lightweight: it does last-updated merge for jobs and prefers the cloud profile after login. It does not yet show sync status, conflict resolution UI, or per-device audit history.
 - Paid User remains a reserved account type; payment and credit-pack purchase flows are not implemented.
 
 ## Validation MVP Layer
@@ -384,7 +386,7 @@ pnpm build
 
 ## Roadmap
 
-- Supabase cloud sync for jobs, candidate profile, and analysis cache
+- Cloud sync status UI, conflict handling, and account settings
 - Account management UI and login polish
 - Persistent guest credits across regions
 - Paid User / Pro / Credit Pack structure

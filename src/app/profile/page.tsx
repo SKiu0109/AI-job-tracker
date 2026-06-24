@@ -5,7 +5,12 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/form-controls";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import {
+  hydrateCandidateProfileFromCloud,
+  upsertCloudCandidateProfile
+} from "@/lib/storage/cloud-sync";
 import {
   loadCandidateProfile,
   resetCandidateProfile,
@@ -39,6 +44,7 @@ type ResumeAnalysisResponse = {
 };
 
 export default function CandidateProfilePage() {
+  const { session } = useAuth();
   const { t, confidences, language } = useLanguage();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [message, setMessage] = useState("");
@@ -53,11 +59,11 @@ export default function CandidateProfilePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setProfile(loadCandidateProfile());
+      hydrateCandidateProfileFromCloud(session).then(setProfile);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [session]);
 
   const updateField = (field: ProfileField, value: string) => {
     setProfile((current) => (current ? { ...current, [field]: value } : current));
@@ -73,12 +79,14 @@ export default function CandidateProfilePage() {
 
     saveCandidateProfile(profile);
     setProfile(loadCandidateProfile());
+    void upsertCloudCandidateProfile(session, profile);
     setMessage(t.profileSaved);
   };
 
   const handleReset = () => {
     const nextProfile = resetCandidateProfile();
     setProfile(nextProfile);
+    void upsertCloudCandidateProfile(session, nextProfile);
     setMessage(t.profileReset);
   };
 
@@ -139,6 +147,7 @@ export default function CandidateProfilePage() {
 
     saveCandidateProfile(resumeAnalysis.candidate_profile);
     setProfile(loadCandidateProfile());
+    void upsertCloudCandidateProfile(session, resumeAnalysis.candidate_profile);
     setMessage(t.resumeProfileApplied);
     setResumeError("");
   };

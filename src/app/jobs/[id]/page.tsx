@@ -9,11 +9,16 @@ import { CompanyLogo } from "@/components/jobs/company-logo";
 import { DetailSection } from "@/components/jobs/detail-section";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { StatusSelect } from "@/components/jobs/status-select";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { formatDate } from "@/lib/utils";
 import {
+  deleteCloudJob,
+  hydrateJobsFromCloud,
+  upsertCloudJob
+} from "@/lib/storage/cloud-sync";
+import {
   deleteStoredJob,
-  getStoredJob,
   updateStoredJobStatus
 } from "@/lib/storage/jobs";
 import {
@@ -26,6 +31,7 @@ import {
 export default function JobDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useAuth();
   const { language, t, recommendations, nextActions, priorities } =
     useLanguage();
   const [job, setJob] = useState<JobRecord | null>(null);
@@ -33,17 +39,21 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setJob(getStoredJob(params.id) ?? null);
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then((jobs) => {
+          setJob(jobs.find((item) => item.id === params.id) ?? null);
+        })
+        .finally(() => setIsLoaded(true));
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [params.id]);
+  }, [params.id, session]);
 
   const handleStatusChange = (status: ApplicationStatus) => {
     const updatedJob = updateStoredJobStatus(params.id, status);
     if (updatedJob) {
       setJob(updatedJob);
+      void upsertCloudJob(session, updatedJob);
     }
   };
 
@@ -53,6 +63,7 @@ export default function JobDetailPage() {
     }
 
     deleteStoredJob(params.id);
+    void deleteCloudJob(session, params.id);
     router.push("/");
   };
 

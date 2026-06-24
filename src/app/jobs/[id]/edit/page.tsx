@@ -7,10 +7,15 @@ import type { ReactNode } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/form-controls";
 import { StatusSelect } from "@/components/jobs/status-select";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import {
+  deleteCloudJob,
+  hydrateJobsFromCloud,
+  upsertCloudJob
+} from "@/lib/storage/cloud-sync";
+import {
   deleteStoredJob,
-  getStoredJob,
   updateStoredJob
 } from "@/lib/storage/jobs";
 import { ApplicationStatus, JobRecord, WORK_MODES, WorkMode } from "@/types/job";
@@ -56,6 +61,7 @@ const EMPTY_FORM: EditFormState = {
 export default function EditJobPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useAuth();
   const { language, t } = useLanguage();
   const [job, setJob] = useState<JobRecord | null>(null);
   const [form, setForm] = useState<EditFormState>(EMPTY_FORM);
@@ -63,14 +69,17 @@ export default function EditJobPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const storedJob = getStoredJob(params.id) ?? null;
-      setJob(storedJob);
-      setForm(storedJob ? createFormState(storedJob) : EMPTY_FORM);
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then((jobs) => {
+          const storedJob = jobs.find((item) => item.id === params.id) ?? null;
+          setJob(storedJob);
+          setForm(storedJob ? createFormState(storedJob) : EMPTY_FORM);
+        })
+        .finally(() => setIsLoaded(true));
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [params.id]);
+  }, [params.id, session]);
 
   const updateField = <Key extends keyof EditFormState>(
     key: Key,
@@ -105,6 +114,7 @@ export default function EditJobPage() {
     );
 
     if (updatedJob) {
+      void upsertCloudJob(session, updatedJob);
       router.push(`/jobs/${updatedJob.id}`);
     }
   };
@@ -115,6 +125,7 @@ export default function EditJobPage() {
     }
 
     deleteStoredJob(params.id);
+    void deleteCloudJob(session, params.id);
     router.push("/");
   };
 

@@ -15,6 +15,11 @@ import { trackProductEvent } from "@/lib/product/analytics";
 import { SAMPLE_JD, SAMPLE_SOURCE_URL } from "@/lib/sample-jd";
 import { formatCandidateProfile } from "@/lib/candidate-profile";
 import {
+  readCloudCachedAnalysis,
+  upsertCloudJob,
+  writeCloudCachedAnalysis
+} from "@/lib/storage/cloud-sync";
+import {
   createAnalysisCacheKey,
   createInitialStatusHistory,
   readCachedAnalysis,
@@ -116,9 +121,12 @@ export function AddJobForm({
 
     const candidateProfileText = formatCandidateProfile(loadCandidateProfile());
     const cacheKey = createAnalysisCacheKey(rawJdText, candidateProfileText);
-    const cachedAnalysis = readCachedAnalysis(cacheKey);
+    const cachedAnalysis =
+      readCachedAnalysis(cacheKey) ??
+      (await readCloudCachedAnalysis(session, cacheKey));
 
     if (cachedAnalysis) {
+      writeCachedAnalysis(cacheKey, cachedAnalysis);
       setInfo(t.analysisCached);
       const job = createJobRecord({
         analysis: cachedAnalysis,
@@ -132,6 +140,7 @@ export function AddJobForm({
         followUpNotes
       });
       saveJob(job);
+      void upsertCloudJob(session, job);
       trackProductEvent("job_added", {
         cached: true,
         matchScore: job.match_score,
@@ -191,6 +200,7 @@ export function AddJobForm({
       }
 
       writeCachedAnalysis(cacheKey, payload.analysis);
+      void writeCloudCachedAnalysis(session, cacheKey, payload.analysis);
       const job = createJobRecord({
         analysis: payload.analysis,
         sourceUrl,
@@ -203,6 +213,7 @@ export function AddJobForm({
         followUpNotes
       });
       saveJob(job);
+      void upsertCloudJob(session, job);
       trackProductEvent("job_added", {
         cached: false,
         matchScore: job.match_score,

@@ -8,9 +8,15 @@ import { CompanyLogo } from "@/components/jobs/company-logo";
 import { Input, Select } from "@/components/ui/form-controls";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { StatusSelect } from "@/components/jobs/status-select";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { trackProductEvent } from "@/lib/product/analytics";
 import { formatDate } from "@/lib/utils";
+import {
+  deleteCloudJobs,
+  hydrateJobsFromCloud,
+  upsertCloudJobs
+} from "@/lib/storage/cloud-sync";
 import { loadJobs, saveJobs, updateStoredJobStatus } from "@/lib/storage/jobs";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
 import {
@@ -43,6 +49,7 @@ type TrackerAnalytics = {
 
 export default function JobListPage() {
   const router = useRouter();
+  const { session } = useAuth();
   const { language, t, statuses, recommendations, nextActions } = useLanguage();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -65,12 +72,13 @@ export default function JobListPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setJobs(loadJobs());
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then(setJobs)
+        .finally(() => setIsLoaded(true));
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [session]);
 
   const jobTypes = useMemo(() => {
     return Array.from(
@@ -145,14 +153,18 @@ export default function JobListPage() {
   const analytics = useMemo(() => buildTrackerAnalytics(jobs), [jobs]);
 
   const handleStatusChange = (jobId: string, status: ApplicationStatus) => {
-    updateStoredJobStatus(jobId, status);
+    const updatedJob = updateStoredJobStatus(jobId, status);
     setJobs(loadJobs());
+    if (updatedJob) {
+      void upsertCloudJobs(session, [updatedJob]);
+    }
     setMessage(t.updateSuccess);
   };
 
   const handleLoadSampleData = () => {
     saveJobs(SAMPLE_JOBS);
     setJobs(loadJobs());
+    void upsertCloudJobs(session, SAMPLE_JOBS);
     setMessage(t.sampleDataLoaded);
     trackProductEvent("demo_sample_loaded", {
       jobCount: SAMPLE_JOBS.length,
@@ -177,8 +189,12 @@ export default function JobListPage() {
   };
 
   const handleBatchStatusUpdate = () => {
-    selectedJobIds.forEach((jobId) => updateStoredJobStatus(jobId, batchStatus));
-    setJobs(loadJobs());
+    const updatedJobs = selectedJobIds
+      .map((jobId) => updateStoredJobStatus(jobId, batchStatus))
+      .filter(Boolean) as JobRecord[];
+    const nextJobs = loadJobs();
+    setJobs(nextJobs);
+    void upsertCloudJobs(session, updatedJobs);
     setSelectedJobIds([]);
     setMessage(t.updateSuccess);
   };
@@ -192,6 +208,7 @@ export default function JobListPage() {
     const nextJobs = jobs.filter((job) => !selectedSet.has(job.id));
     saveJobs(nextJobs);
     setJobs(loadJobs());
+    void deleteCloudJobs(session, selectedJobIds);
     setSelectedJobIds([]);
     setMessage(t.deleteSuccess);
   };
