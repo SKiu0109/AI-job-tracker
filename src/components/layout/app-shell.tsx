@@ -13,8 +13,13 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { accountStatus, signOut } = useAuth();
+  const { accountStatus, signOut, user } = useAuth();
   const { status } = useGuestCredits();
+  const accountLabel = accountStatus.isAdmin
+    ? t.adminAccount
+    : accountStatus.isAuthenticated
+      ? t.freeAccount
+      : t.guestAccount;
   const creditsLabel = accountStatus.credits.adminBypass
     ? t.adminCreditsLabel
     : status
@@ -110,34 +115,69 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {creditsLabel}
                 </span>
               ) : null}
-              <span className="inline-flex min-h-9 items-center rounded-app border border-line bg-surface-muted px-3 text-xs font-semibold text-muted shadow-soft sm:text-sm">
-                {accountStatus.isAdmin
-                  ? t.adminAccount
-                  : accountStatus.isAuthenticated
-                    ? t.freeAccount
-                    : t.guestAccount}
-              </span>
-              {accountStatus.isAuthenticated ? (
-                <button
-                  type="button"
-                  onClick={() => void signOut()}
-                  className="inline-flex min-h-9 items-center justify-center rounded-app border border-line bg-white px-3 text-xs font-semibold text-muted shadow-soft transition hover:border-line-strong hover:bg-surface-muted sm:text-sm"
-                >
-                  {t.signOut}
-                </button>
-              ) : (
-                <Link
-                  href="/login"
+              <details className="group relative">
+                <summary
                   className={cn(
-                    "inline-flex min-h-9 items-center justify-center rounded-app border px-3 text-xs font-semibold shadow-soft transition sm:text-sm",
+                    "flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-app border px-3 py-1.5 text-xs font-semibold shadow-soft transition marker:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:text-sm",
                     pathname === "/login"
                       ? "border-accent bg-accent text-white"
-                      : "border-line bg-white text-muted hover:border-line-strong hover:bg-surface-muted"
+                      : "border-line bg-white text-ink hover:border-line-strong hover:bg-surface-muted"
                   )}
                 >
-                  {t.signIn}
-                </Link>
-              )}
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-[10px] font-bold uppercase text-white">
+                    {getAccountInitial(accountLabel)}
+                  </span>
+                  <span>{accountLabel}</span>
+                  <span
+                    className="text-muted transition group-open:rotate-180"
+                    aria-hidden="true"
+                  >
+                    ▾
+                  </span>
+                </summary>
+                <div className="absolute right-0 top-11 z-40 w-64 rounded-panel border border-line bg-white p-3 shadow-panel">
+                  <div className="border-b border-line pb-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      {t.accountMenu}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-ink">
+                      {accountLabel}
+                    </p>
+                    {user?.email ? (
+                      <p className="mt-1 truncate text-xs text-muted">
+                        {user.email}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs leading-5 text-muted">
+                        {t.guestAccountHint}
+                      </p>
+                    )}
+                  </div>
+                  {creditsLabel ? (
+                    <p className="mt-3 rounded-app border border-line bg-surface-muted px-3 py-2 text-xs font-semibold text-muted">
+                      {creditsLabel}
+                    </p>
+                  ) : null}
+                  <div className="mt-3">
+                    {accountStatus.isAuthenticated ? (
+                      <button
+                        type="button"
+                        onClick={() => void signOut()}
+                        className="flex min-h-10 w-full items-center justify-center rounded-app border border-line bg-white px-3 text-sm font-semibold text-ink transition hover:border-line-strong hover:bg-surface-muted"
+                      >
+                        {t.signOut}
+                      </button>
+                    ) : (
+                      <Link
+                        href="/login"
+                        className="flex min-h-10 w-full items-center justify-center rounded-app border border-accent bg-accent px-3 text-sm font-semibold text-white transition hover:border-accent-strong hover:bg-accent-strong"
+                      >
+                        {t.signIn}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </details>
             </div>
         </div>
       </header>
@@ -156,6 +196,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     </div>
   );
+}
+
+function getAccountInitial(label: string) {
+  return label.trim().slice(0, 1) || "A";
 }
 
 function formatTemplate(
