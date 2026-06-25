@@ -340,7 +340,7 @@ Launcher logs are stored in `.localappdata`, which is ignored by Git.
 
 ## Environment Variables
 
-Create `.env.local` in the project root for local development, or set the same variables in Vercel Project Settings. Never commit real keys.
+Create `.env.local` in the project root for local development, or set the same variables in Vercel Project Settings. Start from `.env.example` when setting up a new machine. Never commit real keys.
 
 All API keys are server-only. Do not prefix them with `NEXT_PUBLIC_`.
 
@@ -385,19 +385,31 @@ AI_MODEL=gpt-5-mini
 Optional for persistent validation feedback, product events, and guest credits:
 
 ```bash
-SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 ```
 
 Optional for Supabase Auth login:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key_here
+# NEXT_PUBLIC_SUPABASE_ANON_KEY is also supported if your Supabase dashboard uses anon key naming.
 ADMIN_EMAILS=your-email@example.com
 ```
 
-Before setting these variables, run the SQL files in `supabase/` and enable Email and Google providers in the Supabase Dashboard. `SUPABASE_SERVICE_ROLE_KEY` must remain server-only and must never be prefixed with `NEXT_PUBLIC_`.
+Before setting these variables, run the SQL files in `supabase/` and enable Email and Google providers in the Supabase Dashboard. `SUPABASE_SERVICE_ROLE_KEY` must remain server-only and must never be prefixed with `NEXT_PUBLIC_`. `NEXT_PUBLIC_SUPABASE_URL` and the publishable/anon key are browser-visible by design; they are not enough to bypass Row Level Security.
+
+For the hosted Vercel app to work beyond Demo Mode, configure at least:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_or_anon_key_here
+SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+```
+
+Then redeploy the Vercel project. Demo Mode remains available when AI provider keys are omitted or exhausted.
 
 ## Useful Commands
 
