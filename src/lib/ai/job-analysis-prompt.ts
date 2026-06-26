@@ -8,14 +8,21 @@ export function buildJobAnalysisMessages(input: {
   sourceUrl?: string;
   candidateProfile?: string;
 }) {
-  const candidateProfile =
-    input.candidateProfile?.trim() ||
-    formatCandidateProfile(DEFAULT_CANDIDATE_PROFILE);
+  const hasProfile = input.candidateProfile?.trim();
+  // Use provided profile, or fall back to defaults only for guest/demo entries
+  const profileNote = hasProfile
+    ? ""
+    : " Note: The candidate profile below is a built-in demo. Scores may not reflect a real user.";
+
+  const effectiveProfile = hasProfile
+    ? input.candidateProfile
+    : formatCandidateProfile(DEFAULT_CANDIDATE_PROFILE);
 
   const schema = `{
   "company": "string",
   "job_title_original": "string",
   "job_title_zh": "string",
+  "job_title_en": "string",
   "location": "string",
   "work_mode": "Remote | Hybrid | Onsite | Not specified",
   "job_type_en": "string",
@@ -90,19 +97,20 @@ export function buildJobAnalysisMessages(input: {
     {
       role: "system" as const,
       content:
-        "You are a bilingual career analyst for Chinese-speaking international students. Return valid JSON only. Do not include markdown, comments, or extra text."
+        "You are a bilingual career analyst. Return valid JSON only. Do not include markdown, comments, or extra text."
     },
     {
       role: "user" as const,
       content: [
         "Analyze the pasted job description for a job application tracker.",
         "Always preserve the original company name and original job title wording when available.",
+        "Always provide the English job title in job_title_en — translate from the original title if the JD is in Chinese, or copy the original if the JD is already in English.",
         "Always provide both English and Simplified Chinese fields where the schema asks for both.",
         "Keep resume_keywords mainly in English because they are intended for English resumes.",
         "Keep every summary and list concise.",
         "For match_score_breakdown, each dimension score must be from 0 to 100 and explanations must be short.",
         "For evidence_from_jd, quote or closely paraphrase concrete JD wording. If the JD is vague, say what is missing.",
-        "For candidate_gap, compare the JD against the candidate profile, not a generic candidate.",
+        "For candidate_gap, compare the JD against the candidate profile, not a generic candidate. If the profile is missing a relevant dimension (e.g. no work experience provided), mark the gap as 'Unknown — profile does not specify' rather than inventing information.",
         "Confidence must be High, Medium, or Low depending on how clearly the JD supports the judgment.",
         "Recommended next action must be exactly one of: Apply now, Tailor resume first, Save for later, Skip, Improve skills before applying.",
         "For matched_skills, missing_skills, important_tools, and resume_keywords, keep terms mainly in English because they help English resumes and ATS matching.",
@@ -110,7 +118,8 @@ export function buildJobAnalysisMessages(input: {
         "Recommended application decision must be exactly one of: Strongly apply, Worth trying, Low priority, Not recommended.",
         "",
         "Candidate profile:",
-        candidateProfile,
+        effectiveProfile,
+        profileNote,
         "",
         `Source URL reference only: ${input.sourceUrl?.trim() || "Not provided"}`,
         "",
@@ -120,9 +129,9 @@ export function buildJobAnalysisMessages(input: {
         "Match score rules:",
         "- Score from 0 to 100.",
         "- Higher score means the JD fits the candidate profile better.",
-        "- Consider education, technical skills, business skills, communication, domain fit, and early-career suitability.",
-        "- If the JD asks for many years of experience, reduce the score.",
-        "- If the role fits Business Analytics, Product Operations, Risk, Consulting, FinTech, or Data Analyst directions, increase the score.",
+        "- Consider education, technical skills, business skills, communication, domain fit, and role alignment.",
+        "- If the JD asks for many years of experience beyond the profile level, reduce the score.",
+        "- If the candidate profile has gaps (missing dimensions), note uncertainty in the explanation but still score based on what IS known.",
         "",
         "Raw job description:",
         input.rawJd

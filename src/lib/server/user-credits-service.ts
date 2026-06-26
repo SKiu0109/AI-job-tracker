@@ -4,6 +4,11 @@ import {
   FREE_USER_MONTHLY_CREDITS,
   JD_ANALYSIS_CREDIT_COST
 } from "@/lib/credits/constants";
+import {
+  loadLedgerMap,
+  persistLedgerMap,
+  resolvePersistencePath
+} from "@/lib/server/file-persistence";
 import type { CreditBalance } from "@/types/credits";
 
 type UserCreditLedger = {
@@ -37,7 +42,10 @@ export interface UserCreditsService {
 }
 
 class InMemoryUserCreditsService implements UserCreditsService {
-  constructor(private readonly ledgers: Map<string, UserCreditLedger>) {}
+  constructor(
+    private readonly ledgers: Map<string, UserCreditLedger>,
+    private readonly persistencePath?: string
+  ) {}
 
   async getBalance(userId: string, monthlyLimit: number) {
     return toBalance(userId, this.ensureLedger(userId, monthlyLimit), "memory");
@@ -52,6 +60,7 @@ class InMemoryUserCreditsService implements UserCreditsService {
 
     ledger.remaining -= amount;
     ledger.updatedAt = new Date().toISOString();
+    this.save();
     return toBalance(userId, ledger, "memory");
   }
 
@@ -59,6 +68,7 @@ class InMemoryUserCreditsService implements UserCreditsService {
     const ledger = this.ensureLedger(userId, monthlyLimit);
     ledger.remaining = Math.min(ledger.monthlyLimit, ledger.remaining + amount);
     ledger.updatedAt = new Date().toISOString();
+    this.save();
     return toBalance(userId, ledger, "memory");
   }
 
@@ -71,6 +81,7 @@ class InMemoryUserCreditsService implements UserCreditsService {
       if (existing.monthlyLimit !== monthlyLimit) {
         existing.monthlyLimit = monthlyLimit;
         existing.remaining = Math.min(existing.remaining, monthlyLimit);
+        this.save();
       }
 
       return existing;
@@ -86,7 +97,13 @@ class InMemoryUserCreditsService implements UserCreditsService {
     };
 
     this.ledgers.set(key, ledger);
+    this.save();
     return ledger;
+  }
+
+  private save(): void {
+    if (!this.persistencePath) return;
+    persistLedgerMap<UserCreditLedger>(this.persistencePath, this.ledgers);
   }
 }
 
@@ -212,12 +229,16 @@ const globalForUserCredits = globalThis as typeof globalThis & {
 };
 
 export function getUserCreditsService(): UserCreditsService {
+  const persistencePath = resolvePersistencePath("user-credits-ledger.json");
   const ledgers =
     globalForUserCredits.__aiJobTrackerUserCredits ??
-    new Map<string, UserCreditLedger>();
+    loadLedgerMap<UserCreditLedger>(persistencePath);
   globalForUserCredits.__aiJobTrackerUserCredits = ledgers;
 
-  const memoryService = new InMemoryUserCreditsService(ledgers);
+  const memoryService = new InMemoryUserCreditsService(
+    ledgers,
+    persistencePath
+  );
   const supabaseUrl =
     process.env.SUPABASE_URL ??
     process.env.NEXT_PUBLIC_SUPABASE_URL ??

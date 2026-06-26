@@ -32,5 +32,6 @@ yarn-error.log*
 # system
 .DS_Store
 Thumbs.db
+.workbuddy/cache/
 
 .vercel

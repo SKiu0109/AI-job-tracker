@@ -4,6 +4,11 @@ import {
   GUEST_CREDIT_LIMIT,
   JD_ANALYSIS_CREDIT_COST
 } from "@/lib/credits/constants";
+import {
+  loadLedgerMap,
+  persistLedgerMap,
+  resolvePersistencePath
+} from "@/lib/server/file-persistence";
 import type { CreditBalance } from "@/types/credits";
 
 type GuestCreditLedger = {
@@ -23,7 +28,10 @@ export interface CreditsService {
 }
 
 class InMemoryGuestCreditsService implements CreditsService {
-  constructor(private readonly ledgers: Map<string, GuestCreditLedger>) {}
+  constructor(
+    private readonly ledgers: Map<string, GuestCreditLedger>,
+    private readonly persistencePath?: string
+  ) {}
 
   async getBalance(guestId: string) {
     return toBalance(guestId, this.ensureLedger(guestId), "memory");
@@ -38,6 +46,7 @@ class InMemoryGuestCreditsService implements CreditsService {
 
     ledger.remaining -= amount;
     ledger.updatedAt = new Date().toISOString();
+    this.save();
     return toBalance(guestId, ledger, "memory");
   }
 
@@ -45,6 +54,7 @@ class InMemoryGuestCreditsService implements CreditsService {
     const ledger = this.ensureLedger(guestId);
     ledger.remaining = Math.min(GUEST_CREDIT_LIMIT, ledger.remaining + amount);
     ledger.updatedAt = new Date().toISOString();
+    this.save();
     return toBalance(guestId, ledger, "memory");
   }
 
@@ -63,7 +73,13 @@ class InMemoryGuestCreditsService implements CreditsService {
     };
 
     this.ledgers.set(guestId, ledger);
+    this.save();
     return ledger;
+  }
+
+  private save(): void {
+    if (!this.persistencePath) return;
+    persistLedgerMap<GuestCreditLedger>(this.persistencePath, this.ledgers);
   }
 }
 
@@ -181,12 +197,16 @@ const globalForCredits = globalThis as typeof globalThis & {
 };
 
 export function getCreditsService(): CreditsService {
+  const persistencePath = resolvePersistencePath("guest-credits-ledger.json");
   const ledgers =
     globalForCredits.__aiJobTrackerGuestCredits ??
-    new Map<string, GuestCreditLedger>();
+    loadLedgerMap<GuestCreditLedger>(persistencePath);
   globalForCredits.__aiJobTrackerGuestCredits = ledgers;
 
-  const memoryService = new InMemoryGuestCreditsService(ledgers);
+  const memoryService = new InMemoryGuestCreditsService(
+    ledgers,
+    persistencePath
+  );
   const supabaseUrl =
     process.env.SUPABASE_URL ??
     process.env.NEXT_PUBLIC_SUPABASE_URL ??
