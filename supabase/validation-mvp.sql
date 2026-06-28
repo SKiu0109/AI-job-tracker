@@ -46,6 +46,20 @@ create index if not exists feedback_guest_id_idx
 alter table product_events enable row level security;
 alter table feedback enable row level security;
 
+drop policy if exists product_events_no_client_access on product_events;
+create policy product_events_no_client_access on product_events
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
+drop policy if exists feedback_no_client_access on feedback;
+create policy feedback_no_client_access on feedback
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
 create table if not exists guest_credits (
   guest_id text primary key,
   remaining integer not null default 10 check (remaining >= 0 and remaining <= 10),
@@ -57,6 +71,13 @@ create index if not exists guest_credits_updated_at_idx
   on guest_credits (updated_at desc);
 
 alter table guest_credits enable row level security;
+
+drop policy if exists guest_credits_no_client_access on guest_credits;
+create policy guest_credits_no_client_access on guest_credits
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
 
 create or replace function get_or_create_guest_credit_balance(
   p_guest_id text,
@@ -167,5 +188,5 @@ grant execute on function try_spend_guest_credit(text, integer, integer)
 grant execute on function refund_guest_credit(text, integer, integer)
   to service_role;
 
--- No anon/client policies are created intentionally. The Next.js server writes
--- with SUPABASE_SERVICE_ROLE_KEY, which must stay server-only.
+-- Client policies explicitly deny direct access. The Next.js server writes with
+-- SUPABASE_SERVICE_ROLE_KEY, which must stay server-only.

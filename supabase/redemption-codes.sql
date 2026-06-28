@@ -50,6 +50,13 @@ create index if not exists code_redemptions_code_id_idx
 alter table redemption_codes enable row level security;
 alter table code_redemptions enable row level security;
 
+drop policy if exists redemption_codes_no_client_access on redemption_codes;
+create policy redemption_codes_no_client_access on redemption_codes
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
 -- Users can read own redemptions; admins bypass via service_role.
 drop policy if exists code_redemptions_select_own on code_redemptions;
 create policy code_redemptions_select_own on code_redemptions
@@ -57,8 +64,8 @@ create policy code_redemptions_select_own on code_redemptions
   to authenticated
   using (user_id = auth.uid());
 
--- No anon/client write policies. All writes go through Next.js server
--- with SUPABASE_SERVICE_ROLE_KEY.
+-- Direct client access to redemption_codes is denied. Redemptions are handled by
+-- the Next.js server with SUPABASE_SERVICE_ROLE_KEY.
 
 -- ============================================================
 -- RPC: add credits to user_monthly_credits (no cap)
