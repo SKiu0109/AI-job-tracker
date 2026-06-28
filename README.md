@@ -4,6 +4,8 @@ A local-first bilingual job application tracker for Chinese-speaking students an
 
 This open-source repository is intended as the local deployment / portfolio version. It focuses on the core workflow: paste a job description, review AI-assisted fit analysis when an API key is configured, and manage applications in a spreadsheet-style workspace. Hosted production features are only mentioned briefly because they are mainly used by the online deployment.
 
+Online demo: [https://ai-bilingual-job-tracker.vercel.app](https://ai-bilingual-job-tracker.vercel.app)
+
 ## What You Can Run Locally
 
 - Landing page with demo entry
@@ -105,6 +107,8 @@ The open-source local workflow is intentionally local-first:
 ## Hosted Version Notes
 
 Some files support the hosted development/deployment version, including optional Supabase auth, cloud sync, guest/user credits, redemption codes, feedback capture, and product-event tracking.
+
+Hosted demo: [https://ai-bilingual-job-tracker.vercel.app](https://ai-bilingual-job-tracker.vercel.app)
 
 For local open-source use, these services are optional. If you want to experiment with the hosted path, start from:
 
