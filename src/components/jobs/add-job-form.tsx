@@ -5,20 +5,18 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ANALYSIS_STEP_INTERVAL_MS } from "@/lib/constants";
 import { Input, Label, Textarea } from "@/components/ui/form-controls";
-import { useAuth } from "@/lib/auth/auth-provider";
-import { MAX_JD_TEXT_LENGTH, MIN_JD_TEXT_LENGTH } from "@/lib/credits/constants";
-import { useGuestCredits } from "@/lib/credits/guest-credits-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import { trackProductEvent } from "@/lib/product/analytics";
 import { SAMPLE_JD, SAMPLE_SOURCE_URL } from "@/lib/sample-jd";
 import { formatCandidateProfile } from "@/lib/candidate-profile";
-import { readCloudCachedAnalysis, upsertCloudJob, writeCloudCachedAnalysis } from "@/lib/storage/cloud-sync";
 import { createAnalysisCacheKey, createInitialStatusHistory, readCachedAnalysis, saveJob, writeCachedAnalysis } from "@/lib/storage/jobs";
 import { loadCandidateProfile } from "@/lib/storage/candidate-profile";
 import { JobAnalysis, JobRecord } from "@/types/job";
-import type { CreditBalance } from "@/types/credits";
+import {
+  MAX_JD_TEXT_LENGTH,
+  MIN_JD_TEXT_LENGTH
+} from "@/lib/validation/job-analysis";
 
-type AnalyzeResponse = { analysis?: JobAnalysis; cached?: boolean; credits?: CreditBalance; error?: string; message?: { en: string; zh: string }; code?: "missing_api_key" | "analysis_failed" | "credits_exhausted" | "credits_unavailable" | "empty_jd" | "jd_too_short" | "jd_too_long" };
+type AnalyzeResponse = { analysis?: JobAnalysis; cached?: boolean; error?: string; message?: { en: string; zh: string }; code?: "missing_api_key" | "analysis_failed" | "empty_jd" | "jd_too_short" | "jd_too_long" };
 
 const CHANNEL_CHIPS = ["公司官网", "LinkedIn", "Seek", "Indeed", "内推", "其他"];
 
@@ -41,8 +39,6 @@ const STEP_DETAILS = [
 export function AddJobForm({ initialRawJd = "", initialSourceUrl = "", samplePrefilled = false }: { initialRawJd?: string; initialSourceUrl?: string; samplePrefilled?: boolean }) {
   const router = useRouter();
   const { language, t } = useLanguage();
-  const { accountStatus, session } = useAuth();
-  const { status: creditsStatus, refreshCredits, updateCredits } = useGuestCredits();
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl);
   const [deadline, setDeadline] = useState("");
   const [applicationChannel, setApplicationChannel] = useState("");
@@ -63,8 +59,6 @@ export function AddJobForm({ initialRawJd = "", initialSourceUrl = "", samplePre
     return () => clearInterval(interval);
   }, [isAnalyzing]);
 
-  const creditsRemaining = creditsStatus ? `${creditsStatus.credits.remaining} / ${creditsStatus.credits.limit}` : "—";
-  const hasAi = creditsStatus && !creditsStatus.demoMode;
   const jdLen = rawJd.trim().length;
   const jdValid = jdLen >= MIN_JD_TEXT_LENGTH && jdLen <= MAX_JD_TEXT_LENGTH;
 
@@ -73,38 +67,29 @@ export function AddJobForm({ initialRawJd = "", initialSourceUrl = "", samplePre
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(""); setInfo("");
     const rawJdText = rawJd.trim();
-    trackProductEvent("analyze_jd_clicked", { source: "add_job_form", jdLength: rawJdText.length, hasSourceUrl: Boolean(sourceUrl.trim()) });
     if (!rawJdText) { setError(t.rawJdRequired); return; }
     if (rawJdText.length < MIN_JD_TEXT_LENGTH) { setError(t.rawJdTooShort); return; }
     if (rawJdText.length > MAX_JD_TEXT_LENGTH) { setError(t.rawJdTooLong); return; }
 
     const candidateProfileText = formatCandidateProfile(loadCandidateProfile());
     const cacheKey = createAnalysisCacheKey(rawJdText, candidateProfileText);
-    const cachedAnalysis = readCachedAnalysis(cacheKey) ?? (await readCloudCachedAnalysis(session, cacheKey));
+    const cachedAnalysis = readCachedAnalysis(cacheKey);
 
     if (cachedAnalysis) {
       writeCachedAnalysis(cacheKey, cachedAnalysis); setInfo(t.analysisCached);
       const job = createJobRecord({ analysis: cachedAnalysis, sourceUrl, rawJd: rawJdText, notes, deadline, applicationChannel, contactPerson, interviewDate, followUpNotes });
-      saveJob(job); void upsertCloudJob(session, job);
-      trackProductEvent("job_added", { cached: true, matchScore: job.match_score, recommendation: job.application_recommendation });
+      saveJob(job);
       router.push(`/jobs/${job.id}`); return;
     }
 
-    const latestCreditsStatus = await refreshCredits();
-    if (!latestCreditsStatus) { setError(t.creditsUnavailable); return; }
-    if (latestCreditsStatus.demoMode) { setError(t.demoModeAnalyzeUnavailable); return; }
-    if (!accountStatus.credits.adminBypass && latestCreditsStatus.credits.remaining < latestCreditsStatus.credits.costPerAnalysis) { setError(t.creditsExhausted); return; }
-
     setIsAnalyzing(true); setAnalysisStep(0);
     try {
-      const response = await fetch("/api/analyze-job", { method: "POST", headers: { "Content-Type": "application/json", ...(session?.access_token ? { authorization: `Bearer ${session.access_token}` } : {}) }, body: JSON.stringify({ source_url: sourceUrl.trim() || undefined, raw_jd: rawJdText, candidate_profile: candidateProfileText }) });
+      const response = await fetch("/api/analyze-job", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_url: sourceUrl.trim() || undefined, raw_jd: rawJdText, candidate_profile: candidateProfileText }) });
       const payload = (await response.json().catch(() => ({}))) as AnalyzeResponse;
-      if (payload.credits) updateCredits(payload.credits);
       if (!response.ok || !payload.analysis) throw new Error(getAnalyzeErrorMessage(payload, language, t));
-      writeCachedAnalysis(cacheKey, payload.analysis); void writeCloudCachedAnalysis(session, cacheKey, payload.analysis);
+      writeCachedAnalysis(cacheKey, payload.analysis);
       const job = createJobRecord({ analysis: payload.analysis, sourceUrl, rawJd: rawJdText, notes, deadline, applicationChannel, contactPerson, interviewDate, followUpNotes });
-      saveJob(job); void upsertCloudJob(session, job);
-      trackProductEvent("job_added", { cached: false, matchScore: job.match_score, recommendation: job.application_recommendation });
+      saveJob(job);
       router.push(`/jobs/${job.id}`);
     } catch (submitError) { setError(submitError instanceof Error ? submitError.message : t.analysisFailed); }
     finally { setIsAnalyzing(false); }
@@ -117,40 +102,6 @@ export function AddJobForm({ initialRawJd = "", initialSourceUrl = "", samplePre
         <h1 className="text-[22px] font-semibold tracking-tight text-primary">{t.addJob}</h1>
         <p className="mt-1 text-[14px] text-secondary">{t.defaultProfileHint}</p>
       </div>
-
-      {/* AI / quota card */}
-      {creditsStatus ? (
-        <section className="rounded-xl border border-black/[0.04] bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              {hasAi ? (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-                  <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 16 16"><path d="M5 8.5l2 2 4-5M13.5 8a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/></svg>
-                </span>
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-                  <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 16 16"><path d="M8 10V6M8 3v1M13.5 8a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/></svg>
-                </span>
-              )}
-              <div>
-                <p className="text-[13px] font-semibold text-primary">
-                  {creditsStatus.demoMode ? t.demoModeLabel : (language === "zh" ? "AI 分析已启用" : "AI analysis ready")}
-                </p>
-                <p className="text-[12px] text-secondary">
-                  {creditsStatus.demoMode ? t.demoModeMessage : creditsStatus ? t.realAiReady : t.creditsHelper}
-                </p>
-              </div>
-            </div>
-            {!accountStatus.credits.adminBypass ? (
-              <span className="inline-flex items-center rounded-lg border border-black/[0.06] bg-[#FAFAFA] px-3 py-1.5 text-[13px] font-medium text-secondary">
-                {language === "zh" ? "剩余额度" : "Credits"}: {creditsRemaining}
-              </span>
-            ) : (
-              <span className="rounded-lg border border-black/[0.06] bg-[#FAFAFA] px-3 py-1.5 text-[12px] text-secondary/50">{t.adminCreditsLabel}</span>
-            )}
-          </div>
-        </section>
-      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Main JD card */}
@@ -302,8 +253,6 @@ function getAnalyzeErrorMessage(payload: AnalyzeResponse, language: "en" | "zh",
   if (payload.message) return payload.message[language];
   switch (payload.code) {
     case "missing_api_key": return t.demoModeAnalyzeUnavailable;
-    case "credits_exhausted": return t.creditsExhausted;
-    case "credits_unavailable": return t.creditsUnavailable;
     case "empty_jd": return t.rawJdRequired;
     case "jd_too_short": return t.rawJdTooShort;
     case "jd_too_long": return t.rawJdTooLong;
