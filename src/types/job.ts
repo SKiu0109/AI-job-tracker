@@ -97,6 +97,7 @@ export type JobAnalysis = {
   company: string;
   job_title_original: string;
   job_title_zh: string;
+  job_title_en: string;
   location: string;
   work_mode: WorkMode;
   job_type_en: string;
@@ -171,15 +172,19 @@ export type CandidateProfile = {
   target_regions: string;
   target_roles: string;
   education_background: string;
-  degree_direction: string;
   technical_skills: string;
   business_skills: string;
-  tools: string;
   work_experience: string;
   work_rights: string;
   preferred_industries: string;
   preferred_language: string;
   career_goals: string;
+};
+
+/** Legacy fields from v1 profile — used only for migration. */
+export type CandidateProfileV1 = CandidateProfile & {
+  degree_direction?: string;
+  tools?: string;
 };
 
 export type ResumeProfileAnalysis = {

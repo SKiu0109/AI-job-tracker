@@ -220,6 +220,7 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
     company: asString(job.company, "Not specified"),
     job_title_original: asString(job.job_title_original, "Not specified"),
     job_title_zh: asString(job.job_title_zh, "Not specified"),
+    job_title_en: asString(job.job_title_en, "Not specified"),
     location: asString(job.location, "Not specified"),
     work_mode: asWorkMode(job.work_mode),
     job_type_en: asString(job.job_type_en, "Not specified"),

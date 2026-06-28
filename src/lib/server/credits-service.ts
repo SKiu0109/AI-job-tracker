@@ -9,6 +9,10 @@ import {
   persistLedgerMap,
   resolvePersistencePath
 } from "@/lib/server/file-persistence";
+import {
+  getSupabaseServerConfig,
+  shouldFailClosedForPersistentUserData
+} from "@/lib/server/supabase-config";
 import type { CreditBalance } from "@/types/credits";
 
 type GuestCreditLedger = {
@@ -207,23 +211,17 @@ export function getCreditsService(): CreditsService {
     ledgers,
     persistencePath
   );
-  const supabaseUrl =
-    process.env.SUPABASE_URL ??
-    process.env.NEXT_PUBLIC_SUPABASE_URL ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL ??
-    process.env
-      .NEXT_PUBLIC_sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_SERVICE_ROLE_KEY;
+  const { supabaseUrl, serviceRoleKey } = getSupabaseServerConfig();
 
   if (supabaseUrl && serviceRoleKey) {
-    return new FallbackCreditsService(
-      new SupabaseGuestCreditsService(supabaseUrl, serviceRoleKey),
-      memoryService
+    const supabaseService = new SupabaseGuestCreditsService(
+      supabaseUrl,
+      serviceRoleKey
     );
+
+    return shouldFailClosedForPersistentUserData()
+      ? supabaseService
+      : new FallbackCreditsService(supabaseService, memoryService);
   }
 
   return memoryService;

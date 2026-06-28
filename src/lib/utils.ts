@@ -27,3 +27,16 @@ export function formatDate(value: string, locale: string) {
     day: "numeric"
   }).format(date);
 }
+
+/**
+ * 简单模板字符串替换：将 `{key}` 替换为 values 中对应的值。
+ */
+export function formatTemplate(
+  template: string,
+  values: Record<string, string | number>,
+) {
+  return Object.entries(values).reduce(
+    (text, [key, value]) => text.replace(`{${key}}`, String(value)),
+    template,
+  );
+}

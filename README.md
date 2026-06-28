@@ -1,352 +1,80 @@
-# AI Bilingual Job Search Analytics Platform
+# AI Bilingual Job Tracker
 
-A local-first AI job application management platform for Chinese-speaking international students applying for English-speaking roles in Australia, Singapore, and China.
+A local-first bilingual job application tracker for Chinese-speaking students and early-career candidates applying to English-speaking roles.
 
-The app helps students paste job descriptions, generate evidence-based AI analysis, decide which jobs are worth applying to, understand skill gaps, tailor resumes, and manage applications in a spreadsheet-style tracker.
+This open-source repository is intended as the local deployment / portfolio version. It focuses on the core workflow: paste a job description, review AI-assisted fit analysis when an API key is configured, and manage applications in a spreadsheet-style workspace. Hosted production features are only mentioned briefly because they are mainly used by the online deployment.
 
-Product positioning: From job tracker to bilingual AI job search analytics platform.
+## What You Can Run Locally
 
-## Live Demo
-
-Live Demo: https://ai-bilingual-job-tracker.vercel.app
-
-## Screenshots
-
-Screenshots are not committed yet. Recommended portfolio screenshots:
-
-- Tracker desktop table and mobile job cards
-- Dashboard analytics
-- Job detail analysis page
-- Candidate profile page
-- Demo Mode and guest credits banner
-- Landing/about page with a demo-mode entry point
-
-After the visual refresh, retake screenshots so the portfolio shows the landing/about page, demo entry point, workspace tracker, mobile cards, and dashboard/detail hierarchy.
-
-## Target Users
-
-- Chinese-speaking international students applying for analyst, consulting, product operations, risk, FinTech, and business roles
-- Early-career candidates who need to compare job fit and tailor English resumes
-- Portfolio reviewers who want to evaluate a practical local-first AI product workflow
-
-## Key Features
-
-- Landing/about page at `/` for product positioning and demo entry
-- Workspace tracker at `/workspace` with search, filters, sorting, clickable rows, row hover states, and status updates
-- Multi-select jobs, batch status update, batch delete with confirmation, and CSV export
-- Filters for high-match jobs, jobs needing action, and approaching deadlines
-- Add Job workflow for source URL, pasted JD text, deadline, channel, contacts, interview date, notes, and follow-up notes
-- Editable candidate profile saved locally and used for AI match scoring
-- Resume upload on the Profile page to generate a candidate profile draft from `.docx` or text-based `.pdf` resumes
-- Evidence-based AI analysis with match score breakdown, JD evidence, candidate gaps, confidence levels, red flags, and positive signals
-- Recommended next action: apply now, tailor resume first, save for later, skip, or improve skills before applying
-- Skill gap analysis with matched skills, missing skills, required tools, resume keywords, learning actions, and missing-skill priority
-- Decision-focused job detail page with status timeline, notes, requirements, responsibilities, and collapsed raw JD text
-- Dashboard analytics for application funnel, role types, average match by role, top skills, missing skills, tools, regions, and high-priority jobs
-- English / Simplified Chinese UI toggle with static translation dictionaries
-- Demo sample data for review without calling the AI API
-- Demo Mode indicator when real AI analysis is unavailable
-- Anonymous guest credits for controlled public demo usage
-- Feedback page and lightweight product event tracking for validation MVP learning
-- Mobile card layout for job records while keeping the desktop spreadsheet table
-- Basic PWA manifest and install metadata
-- Server-only AI provider abstraction for OpenAI-compatible providers including OpenAI and DeepSeek
+- Landing page with demo entry
+- Workspace tracker with search, filters, sorting, status updates, batch actions, and CSV export
+- Add Job flow for pasted job descriptions and optional application notes
+- Candidate profile editor saved in browser local storage
+- Resume-to-profile draft generation from `.docx` or text-based `.pdf` files
+- Job detail pages with score breakdown, evidence, gaps, notes, and timeline
+- Dashboard analytics for funnel, role types, match scores, skills, missing skills, tools, and regions
+- English / Simplified Chinese UI toggle
+- Demo sample data when no AI key is configured
+- Windows helper scripts for starting/stopping the local app
 
 ## Tech Stack
 
 - Next.js App Router
+- React
 - TypeScript
 - Tailwind CSS
-- Local storage persistence
-- OpenAI-compatible chat completions API abstraction
-- Resume text extraction with Mammoth for Word `.docx` files and pdf-parse for text-based PDFs
-- Lightweight custom table and dashboard visual blocks
-- Windows local-app launcher scripts for one-click local use
-
-## Architecture
-
-```mermaid
-flowchart TD
-  Browser["Browser UI\nLanding, Workspace, Dashboard, Profile, Add JD"] --> LocalStorage["Local storage\nJobs, profile, client analysis cache"]
-  Browser --> CreditsAPI["/api/credits\nGuest/user/admin credit status"]
-  Browser --> AnalyzeAPI["/api/analyze-job\nValidation, cache, credits"]
-  Browser --> ResumeAPI["/api/analyze-resume\nResume text extraction"]
-  Browser --> AccountAPI["/api/account/status\nAuth user + account type"]
-  Browser --> EventsAPI["/api/product-events\nLightweight event tracking"]
-  Browser --> FeedbackAPI["/api/feedback\nUser feedback collection"]
-  CreditsAPI --> CreditService["Credits service abstraction\nGuest + monthly user credits"]
-  AnalyzeAPI --> ServerCache["Server analysis cache\nCurrent: in-memory cache"]
-  EventsAPI --> ValidationStore["Product validation store\nCurrent: in-memory mock store"]
-  FeedbackAPI --> ValidationStore
-  AccountAPI --> SupabaseAuth["Supabase Auth\nEmail / Google login"]
-  AccountAPI --> AccountTables["user_accounts + user_monthly_credits\nFree / Paid structure"]
-  AnalyzeAPI --> Provider["OpenAI-compatible provider\nOpenAI or DeepSeek"]
-  ResumeAPI --> Provider
-  Provider --> Env["Server-only env vars\nAI_PROVIDER, AI_MODEL, API keys"]
-```
-
-## AI Analysis Workflow
-
-1. The user pastes a job description on the Add Job page.
-2. The frontend loads the saved candidate profile from local storage.
-3. The app sends the JD, source URL reference, and candidate profile to `/api/analyze-job`.
-4. The server-side provider calls the configured AI model and asks for JSON-only output.
-5. The response is normalized for backward compatibility with older saved jobs.
-6. The job record is saved locally and opened on the detail page.
-
-The API key is only read on the server side. It is never exposed to browser code.
-
-## Resume-to-Profile Workflow
-
-1. The user opens the Profile page and uploads a `.docx` resume or a text-based `.pdf`.
-2. The server extracts plain text from the resume.
-3. The app sends the extracted text and current saved profile to `/api/analyze-resume`.
-4. The AI returns a candidate profile draft, bilingual summaries, extracted strengths, unclear information, and confidence level.
-5. The user reviews the draft and clicks `Apply to Profile` only if they want to save it locally.
-
-The original resume file is not saved by the app. Only the user-approved candidate profile is persisted in local storage. V1 does not support scanned PDFs or OCR.
-
-## Candidate Profile Personalization
-
-The Profile page stores local candidate preferences used in AI scoring:
-
-- Target regions
-- Target roles
-- Education background
-- Degree direction
-- Technical skills
-- Business skills
-- Tools
-- Work experience
-- Work rights / visa status
-- Preferred industries
-- Preferred language
-- Career goals
-
-Users can also generate a draft profile from an uploaded resume and then manually edit it before saving.
-
-Default profile:
-
-- Chinese-speaking international student
-- Bachelor background in Statistics
-- Master direction in Business Analytics and FinTech
-- Target regions: Australia, Singapore, China
-- Target roles: Data Analyst, Business Analyst, Product Operations, Risk Strategy, Consulting, FinTech
-- Skills: SQL, Python, Excel, Power BI, data analysis, report writing, questionnaire analysis, consulting research
-- Experience: FMCG quantitative research, consulting project work, transcript cleaning, insight memo writing
-- Work rights: international student
-
-## Match Scoring Logic
-
-The AI returns a 0-100 match score and six dimensions:
-
-- Education fit
-- Technical skills fit
-- Business / communication fit
-- Experience fit
-- Career direction fit
-- Location / international student suitability
-
-Each dimension includes a score, explanation, evidence from the JD, candidate gap, and confidence level.
-
-The score should increase when a role fits analytics, product operations, risk, consulting, FinTech, or early-career business roles. It should decrease when the JD requires many years of experience, missing work rights, unclear sponsorship fit, or skills far outside the profile.
-
-## API Cost Control
-
-- AI output is requested as concise JSON only.
-- JD analysis enforces a minimum text length and a maximum JD length of 12,000 characters.
-- Resume text is shortened before AI analysis if it is very long.
-- The app caches analyses in local storage using the normalized JD and candidate profile.
-- Re-analyzing the same unchanged JD with the same profile reuses cached analysis.
-- `/api/analyze-job` also checks a server-side cache before calling the AI provider.
-- Anonymous guest credits are checked on the server before real AI analysis runs.
-- Authenticated Free/Paid monthly credits are checked server-side when Supabase Auth is configured.
-- Admin accounts identified by `ADMIN_EMAILS` bypass product credit deduction.
-- Normal users use the default low-cost AI configuration; Admin can use a dedicated server-only provider/model/API key override.
-- Credits are only consumed for successful, uncached JD analyses.
-- Credits are not consumed when the AI call fails, when sample data is loaded, or when a cached duplicate analysis is reused.
-- The source URL is saved only as a reference; the app does not scrape protected job boards.
-- Future production hardening should add IP-based guest creation limits and server-side rate limiting.
-
-## API Key Strategy
-
-Default public-user AI calls use:
-
-```bash
-AI_PROVIDER=openai
-AI_MODEL=gpt-5-mini
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
-Admin accounts are detected server-side through `ADMIN_EMAILS`. When an Admin is signed in, `/api/analyze-job`, `/api/analyze-resume`, and `/api/credits` can use Admin-only overrides:
-
-```bash
-ADMIN_AI_PROVIDER=openai
-ADMIN_AI_MODEL=gpt-5
-ADMIN_OPENAI_API_KEY=your_admin_openai_api_key_here
-```
-
-If Admin-specific variables are unset, Admin falls back to the default `AI_PROVIDER`, `AI_MODEL`, and provider API key. None of these keys are exposed to browser code.
-
-## Demo Mode and Sample Data
-
-The deployed app is usable without an API key. When no supported provider key is configured, the UI shows Demo Mode:
-
-```text
-Demo mode is active. You can explore sample jobs, dashboard analytics, and profile features. Configure an API key to run real AI JD analysis.
-```
-
-```text
-当前为演示模式。你可以查看示例岗位、仪表盘分析和候选人画像。如需真实 AI 岗位分析，请配置 API Key。
-```
-
-In Demo Mode, reviewers can:
-
-1. Open the landing/about page at `/`.
-2. Click `Try Demo` to load sample data and enter `/workspace`.
-3. Review the dashboard, tracker, job detail page, profile page, edit flow, filters, batch actions, CSV export, and timeline.
-
-You can also test the Add Job workflow with:
-
-```text
-samples/sample-jd.txt
-```
-
-Without an API key, the Analyze JD flow shows a friendly message instead of calling a provider or crashing.
-
-## Guest Credits
-
-Each anonymous browser session receives 10 free guest credits.
-
-- Analyzing 1 uncached JD costs 1 credit.
-- Loading demo sample data costs 0 credits.
-- Reusing cached analysis for the same JD and same candidate profile costs 0 credits.
-- Failed AI provider calls are refunded and do not consume credits.
-- When credits are exhausted, real AI JD analysis is blocked with a bilingual message.
-
-Current implementation:
-
-- A secure, HTTP-only session cookie stores the anonymous guest ID.
-- A server-side credits service abstraction enforces credits in `/api/analyze-job`.
-- The current adapter writes to Supabase when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured.
-- Without Supabase, or if a Supabase call fails, the app falls back to an in-memory mock store suitable for local development and lightweight demos.
-- Supabase credit spend and refund operations use RPC functions so credit deduction is atomic server-side instead of being enforced only in frontend state.
-
-Production limitation: fallback in-memory credits are not durable across Vercel serverless instance restarts or multiple regions. Configure Supabase, Vercel KV, or Upstash Redis before relying on credits for production-grade enforcement.
-
-## Accounts and Auth
-
-The app now includes a Supabase Auth foundation while preserving Guest Demo Mode.
-
-Account types:
-
-- Guest: 10 demo credits, sample data, no required login.
-- Free User: 20 monthly credits and cloud sync for jobs, profile, and analysis cache.
-- Paid User: schema is reserved for future higher limits and deeper analysis.
-- Admin: identified by the server-only `ADMIN_EMAILS` environment variable and does not consume product credits.
-
-Current implementation:
-
-- `/login` supports email/password and Google OAuth when Supabase public auth variables are configured.
-- `/api/account/status` verifies a Supabase access token server-side and returns `guest`, `free`, `paid`, or `admin`.
-- `/api/credits` and `/api/analyze-job` accept the Supabase bearer token and use authenticated monthly credits when present.
-- Free/Paid monthly credit spend and refund use Supabase RPC functions for atomic server-side enforcement.
-- Admin status is derived from `ADMIN_EMAILS`, not from browser-editable state.
-- Supabase schema for `user_accounts`, `user_monthly_credits`, `cloud_jobs`, `cloud_candidate_profiles`, and `cloud_analysis_cache` is provided in `supabase/next-phase-auth-cloud.sql`.
-- When signed in, tracker jobs, candidate profile, and client analysis cache sync through Supabase tables protected by RLS.
-- Local storage remains the first-read cache so Guest Demo Mode and offline-ish browsing still work.
-
-Current limitation:
-
-- Cloud sync is intentionally lightweight: it does last-updated merge for jobs and prefers the cloud profile after login. It does not yet show sync status, conflict resolution UI, or per-device audit history.
-- Paid User remains a reserved account type; payment and credit-pack purchase flows are not implemented.
-
-## Validation MVP Layer
-
-The next product phase is focused on learning from real users before adding heavier features.
-
-Current implementation:
-
-- A `/feedback` page collects structured qualitative feedback from reviewers and early users.
-- `/api/feedback` validates submissions server-side and records them through a product validation service abstraction.
-- `/api/product-events` accepts lightweight product events for key actions such as loading demo data, clicking Analyze JD, exporting CSV, opening job details, and saving analyzed jobs.
-- Client-side event tracking is fire-and-forget. If the request fails, recent events are queued in local storage so the product flow is not blocked.
-- If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, feedback, product events, and guest credits are written to Supabase through the server-only REST API.
-- If Supabase is not configured, or a Supabase write fails, the app falls back to the in-memory validation store so the public demo remains usable.
-
-Current limitation:
-
-- The fallback in-memory validation store is useful for local validation and implementation shape, but it is not durable on Vercel serverless infrastructure.
-
-Optional Supabase setup:
-
-- Run `supabase/validation-mvp.sql` in the Supabase SQL editor. It creates `product_events`, `feedback`, `guest_credits`, and the atomic credit RPC functions.
-- Run `supabase/next-phase-auth-cloud.sql` to create auth-adjacent account, monthly credit, cloud jobs, profile, analysis cache tables, and monthly credit RPC functions.
-- Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as server-only Vercel environment variables.
-- Store anonymous `guest_id`, event name, path, language, timestamp, and safe event properties.
-- Keep feedback free of private resume content and avoid storing sensitive personal details.
-- Add an admin-only export or dashboard after enough early feedback exists.
-
-## Mobile and PWA
-
-- Desktop keeps the spreadsheet-style tracker table.
-- Mobile shows clickable job cards with company, title, match score, recommendation, status, deadline, and next action.
-- Dashboard and detail sections stack vertically on small screens.
-- The app includes a web app manifest, theme color, and placeholder app icon so supported browsers can add it to the home screen.
-- No service worker is included yet; offline AI analysis is intentionally not supported.
+- Browser local storage for local jobs/profile/cache
+- Server-only OpenAI-compatible AI provider abstraction
+- Mammoth for `.docx` text extraction
+- `pdf-parse` for text-based PDF extraction
 
 ## Run Locally
 
+Install dependencies:
+
 ```bash
 pnpm install
+```
+
+Start the dev server:
+
+```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open:
 
-## Deploy on Vercel
+```text
+http://localhost:3000
+```
 
-1. Push the repository to GitHub.
-2. In Vercel, create a new project and import the repository.
-3. Keep the default Next.js framework settings.
-4. Set environment variables only if real AI analysis should be enabled.
-5. Deploy.
-
-Recommended public portfolio setup:
-
-- Leave `OPENAI_API_KEY` and `DEEPSEEK_API_KEY` unset for a safe Demo Mode deployment.
-- Use the landing page `Try Demo` action to let reviewers load sample data and explore the workspace, dashboard, job detail page, candidate profile, edit flow, and CSV export.
-- Add an API key only when you are ready to pay for real public AI usage.
-
-Cost warning: if real AI analysis is enabled on a public deployment, visitors can trigger provider calls. Guest credits and JD limits reduce risk, but persistent storage and server-side rate limiting should be added before broad public launch.
-
-## Windows Local Launcher
-
-For day-to-day local use on Windows, double-click:
+On Windows, you can also double-click:
 
 ```text
 open-job-tracker-windows.vbs
 ```
 
-This starts the local Next.js server quietly in the background and opens [http://127.0.0.1:3000](http://127.0.0.1:3000).
-
-When finished, double-click:
+When finished:
 
 ```text
 stop-job-tracker-windows.vbs
 ```
 
-Launcher logs are stored in `.localappdata`, which is ignored by Git.
+## Demo Mode
 
-## Environment Variables
+The app runs without an AI API key. In that mode, you can load sample jobs and explore the workspace, dashboard, job detail pages, profile page, edit flow, filters, batch actions, and CSV export.
 
-Create `.env.local` in the project root for local development, or set the same variables in Vercel Project Settings. Start from `.env.example` when setting up a new machine. Never commit real keys.
+Sample JD:
 
-All API keys are server-only. Do not prefix them with `NEXT_PUBLIC_`.
+```text
+samples/sample-jd.txt
+```
 
-Required only for real AI analysis:
+## Optional AI Setup
 
-OpenAI example:
+Create `.env.local` from `.env.example`.
+
+OpenAI-compatible example:
 
 ```bash
 AI_PROVIDER=openai
@@ -354,7 +82,7 @@ AI_MODEL=gpt-5-mini
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-DeepSeek example:
+DeepSeek-compatible example:
 
 ```bash
 AI_PROVIDER=deepseek
@@ -362,86 +90,55 @@ AI_MODEL=deepseek-chat
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 
-Optional Admin-only override:
+API keys are read only on the server side. Do not prefix provider keys with `NEXT_PUBLIC_`.
 
-```bash
-ADMIN_AI_PROVIDER=openai
-ADMIN_AI_MODEL=gpt-5
-ADMIN_OPENAI_API_KEY=your_admin_openai_api_key_here
-# Or:
-# ADMIN_AI_PROVIDER=deepseek
-# ADMIN_AI_MODEL=deepseek-chat
-# ADMIN_DEEPSEEK_API_KEY=your_admin_deepseek_api_key_here
-```
+## Local Data Model
 
-Demo Mode setup:
+The open-source local workflow is intentionally local-first:
 
-```bash
-AI_PROVIDER=openai
-AI_MODEL=gpt-5-mini
-# Leave OPENAI_API_KEY and DEEPSEEK_API_KEY unset
-```
+- Jobs are saved in browser local storage.
+- Candidate profile data is saved in browser local storage.
+- Client analysis cache is saved in browser local storage.
+- Uploaded resume files are used for one-time text extraction and are not stored by the app.
+- Source URLs are saved only as references; the app does not scrape LinkedIn, Seek, Indeed, or other protected job boards.
 
-Optional for persistent validation feedback, product events, and guest credits:
+## Hosted Version Notes
 
-```bash
-SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
-```
+Some files support the hosted development/deployment version, including optional Supabase auth, cloud sync, guest/user credits, redemption codes, feedback capture, and product-event tracking.
 
-Optional for Supabase Auth login:
+For local open-source use, these services are optional. If you want to experiment with the hosted path, start from:
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key_here
-# NEXT_PUBLIC_SUPABASE_ANON_KEY is also supported if your Supabase dashboard uses anon key naming.
-ADMIN_EMAILS=your-email@example.com
-```
+- `supabase/validation-mvp.sql`
+- `supabase/next-phase-auth-cloud.sql`
+- `supabase/redemption-codes.sql`
+- `.env.example`
 
-Before setting these variables, run the SQL files in `supabase/` and enable Email and Google providers in the Supabase Dashboard. `SUPABASE_SERVICE_ROLE_KEY` must remain server-only and must never be prefixed with `NEXT_PUBLIC_`. `NEXT_PUBLIC_SUPABASE_URL` and the publishable/anon key are browser-visible by design; they are not enough to bypass Row Level Security.
-
-For the hosted Vercel app to work beyond Demo Mode, configure at least:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_or_anon_key_here
-SUPABASE_URL=https://rlvcjdhmhfwnwbzjndaz.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
-```
-
-Then redeploy the Vercel project. Demo Mode remains available when AI provider keys are omitted or exhausted.
+Production deployments must use persistent storage for credits and authenticated user data. In-memory fallback is suitable for local development and demos only.
 
 ## Useful Commands
 
 ```bash
 pnpm lint
 pnpm build
+pnpm audit --prod
 ```
 
-## Limitations
+## Project Structure
 
-- Local-first persistence; jobs and profile data are stored in the browser.
-- Guest and user credits need Supabase or another persistent backend for production-grade enforcement.
-- Login is basic Supabase Auth; there is no custom account management UI yet.
-- No payment
-- No browser extension
-- No scraping LinkedIn, Seek, Indeed, or other protected job boards
-- Source URLs are saved only as references
-- Uploaded resume files are used for one-time server-side text extraction and are not stored by the app
-- No user-uploaded resume parsing beyond the existing `.docx` and text-based `.pdf` profile draft flow
-- API keys must stay in `.env.local` and server-side environment variables only
+```text
+src/app                 Next.js pages and API routes
+src/components          UI and feature components
+src/lib                 AI, auth, storage, i18n, server utilities
+src/types               Shared TypeScript types
+samples                 Sample job description
+scripts                 Windows local app helpers
+supabase                Optional hosted-version SQL
+```
 
-## Roadmap
+## Contributors
 
-- Cloud sync status UI, conflict handling, and account settings
-- Account management UI and login polish
-- Persistent guest credits across regions
-- Paid User / Pro / Credit Pack structure
-- Admin view for feedback, product events, and guest credit usage
-- Resume tailoring workspace
-- Calendar reminders
-- Mobile app wrapper / PWA improvements
-- CSV import and backup restore
-- More robust AI JSON validation with schema tooling
-- OCR support for scanned PDF resumes
-- Cover letter draft helper
+See [CONTRIBUTORS.md](CONTRIBUTORS.md).
+
+## License
+
+MIT

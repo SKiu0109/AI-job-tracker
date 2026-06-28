@@ -4,6 +4,7 @@ import type {
   FeedbackPayload,
   ProductEventPayload
 } from "@/types/product-validation";
+import { getSupabaseServerConfig } from "@/lib/server/supabase-config";
 
 type StoredProductEvent = ProductEventPayload & {
   guestId: string;
@@ -173,17 +174,7 @@ export function getProductValidationService(): ProductValidationService {
   globalForProductValidation.__aiJobTrackerFeedback = feedback;
 
   const memoryService = new InMemoryProductValidationService(events, feedback);
-  const supabaseUrl =
-    process.env.SUPABASE_URL ??
-    process.env.NEXT_PUBLIC_SUPABASE_URL ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL ??
-    process.env
-      .NEXT_PUBLIC_sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_SERVICE_ROLE_KEY;
+  const { supabaseUrl, serviceRoleKey } = getSupabaseServerConfig();
 
   if (supabaseUrl && serviceRoleKey) {
     return new FallbackProductValidationService(

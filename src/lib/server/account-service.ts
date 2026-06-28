@@ -4,6 +4,10 @@ import {
   FREE_USER_MONTHLY_CREDITS,
   PAID_USER_MONTHLY_CREDITS
 } from "@/lib/credits/constants";
+import {
+  getSupabaseServerConfig,
+  shouldFailClosedForPersistentUserData
+} from "@/lib/server/supabase-config";
 import type { AccountType } from "@/types/account";
 
 type UserAccountRow = {
@@ -26,17 +30,7 @@ export async function getOrCreateUserAccount(
   userId: string,
   email: string
 ): Promise<ServerAccountRecord> {
-  const supabaseUrl =
-    process.env.SUPABASE_URL ??
-    process.env.NEXT_PUBLIC_SUPABASE_URL ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL ??
-    process.env
-      .NEXT_PUBLIC_sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_SERVICE_ROLE_KEY;
+  const { supabaseUrl, serviceRoleKey } = getSupabaseServerConfig();
 
   if (!supabaseUrl || !serviceRoleKey) {
     return {
@@ -83,7 +77,11 @@ export async function getOrCreateUserAccount(
   });
 
   if (!created.ok) {
-    console.warn("[account-service:fallback]", await created.text().catch(() => ""));
+    const errorText = await created.text().catch(() => "");
+    if (shouldFailClosedForPersistentUserData()) {
+      throw new Error(`Supabase account creation failed: ${created.status} ${errorText}`);
+    }
+    console.warn("[account-service:fallback]", errorText);
     return {
       userId,
       email,

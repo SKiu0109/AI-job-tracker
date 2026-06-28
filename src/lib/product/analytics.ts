@@ -2,6 +2,7 @@ import type {
   ProductEventName,
   ProductEventPayload
 } from "@/types/product-validation";
+import { MAX_LOCAL_EVENT_QUEUE } from "@/lib/constants";
 
 const LOCAL_EVENT_QUEUE_KEY = "ai-bilingual-job-tracker.product-events.v1";
 
@@ -38,7 +39,7 @@ function queueLocalEvent(payload: ProductEventPayload) {
     events.push(payload);
     window.localStorage.setItem(
       LOCAL_EVENT_QUEUE_KEY,
-      JSON.stringify(events.slice(-50))
+      JSON.stringify(events.slice(-MAX_LOCAL_EVENT_QUEUE))
     );
   } catch {
     // Analytics should never block the product flow.

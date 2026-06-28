@@ -70,7 +70,7 @@ export function CompanyLogo({
     <span
       aria-hidden="true"
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden border font-bold tracking-normal shadow-soft",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden border font-bold tracking-normal",
         sizeClasses[size],
         profile.className,
         className
@@ -79,7 +79,7 @@ export function CompanyLogo({
       <span className="relative z-10">{profile.mark}</span>
       <span
         className={cn(
-          "absolute rounded-full bg-white/55",
+          "absolute rounded-full bg-white/25",
           stripeClasses[size]
         )}
       />

@@ -185,6 +185,7 @@ function createSampleJob(input: {
     company: input.company,
     job_title_original: input.title,
     job_title_zh: input.titleZh,
+    job_title_en: input.title,
     location: input.location,
     work_mode: "Hybrid",
     job_type_en: input.jobTypeEn,

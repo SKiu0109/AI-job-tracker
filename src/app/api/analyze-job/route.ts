@@ -7,7 +7,10 @@ import {
 import { isAdminEmail } from "@/lib/auth/admin";
 import { getBearerToken, verifySupabaseAccessToken } from "@/lib/auth/server-auth";
 import { JD_ANALYSIS_CREDIT_COST } from "@/lib/credits/constants";
-import { getOrCreateUserAccount } from "@/lib/server/account-service";
+import {
+  getOrCreateUserAccount,
+  type ServerAccountRecord
+} from "@/lib/server/account-service";
 import {
   createServerAnalysisCacheKey,
   readServerCachedAnalysis,
@@ -27,6 +30,7 @@ import { validateRawJd } from "@/lib/validation/job-analysis";
 import type { CreditBalance } from "@/types/credits";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type AnalyzeJobRequest = {
   raw_jd?: string;
@@ -69,6 +73,10 @@ const ERROR_MESSAGES = {
     en: "Your 10 free guest credits have been used. Sample data and cached analyses are still available.",
     zh: "你的 10 次免费访客额度已用完。仍可使用示例数据和已缓存分析。"
   },
+  credits_unavailable: {
+    en: "Credit storage is unavailable. Please check Supabase server configuration before running paid AI analysis.",
+    zh: "额度存储暂时不可用。请先检查 Supabase 服务端配置，再运行付费 AI 分析。"
+  },
   analysis_failed: {
     en: "The AI provider could not complete this analysis. Please try again later.",
     zh: "AI 服务暂时无法完成分析，请稍后再试。"
@@ -99,19 +107,51 @@ export async function POST(request: Request) {
     getBearerToken(request.headers.get("authorization"))
   );
   const isAdmin = isAdminEmail(authUser?.email);
-  const userAccount =
-    authUser && !isAdmin
-      ? await getOrCreateUserAccount(authUser.id, authUser.email)
-      : null;
+  let userAccount: ServerAccountRecord | null = null;
+
+  try {
+    userAccount =
+      authUser && !isAdmin
+        ? await getOrCreateUserAccount(authUser.id, authUser.email)
+        : null;
+  } catch (error) {
+    console.error(
+      "Account storage unavailable",
+      error instanceof Error ? error.message : String(error)
+    );
+    return jsonError(
+      "credits_unavailable",
+      ERROR_MESSAGES.credits_unavailable,
+      503
+    );
+  }
+
   const userCreditsService = getUserCreditsService();
-  const currentCredits = isAdmin
-    ? createAdminCreditBalance()
-    : authUser && userAccount
-      ? await userCreditsService.getBalance(
-          authUser.id,
-          userAccount.monthlyCreditLimit
-        )
-      : await creditsService.getBalance(guestSession.guestId);
+  let currentCredits: CreditBalance;
+
+  try {
+    currentCredits = isAdmin
+      ? createAdminCreditBalance()
+      : authUser && userAccount
+        ? await userCreditsService.getBalance(
+            authUser.id,
+            userAccount.monthlyCreditLimit
+          )
+        : await creditsService.getBalance(guestSession.guestId);
+  } catch (error) {
+    console.error(
+      "Credit storage unavailable",
+      error instanceof Error ? error.message : String(error)
+    );
+    const response = jsonError(
+      "credits_unavailable",
+      ERROR_MESSAGES.credits_unavailable,
+      503
+    );
+    applyGuestSessionCookie(response, guestSession.guestId);
+    return response;
+  }
+
   const respond = (
     payload: Record<string, unknown>,
     init?: ResponseInit
@@ -214,7 +254,11 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error("Job analysis failed", error);
+    console.error(
+      "Job analysis failed",
+      error instanceof Error ? error.message : String(error),
+      error instanceof Error && error.stack ? error.stack.slice(0, 500) : ""
+    );
 
     return respond(
       {

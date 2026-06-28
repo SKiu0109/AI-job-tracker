@@ -1,70 +1,48 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ANALYSIS_STEP_INTERVAL_MS } from "@/lib/constants";
 import { Input, Label, Textarea } from "@/components/ui/form-controls";
 import { useAuth } from "@/lib/auth/auth-provider";
-import {
-  MAX_JD_TEXT_LENGTH,
-  MIN_JD_TEXT_LENGTH
-} from "@/lib/credits/constants";
+import { MAX_JD_TEXT_LENGTH, MIN_JD_TEXT_LENGTH } from "@/lib/credits/constants";
 import { useGuestCredits } from "@/lib/credits/guest-credits-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { trackProductEvent } from "@/lib/product/analytics";
 import { SAMPLE_JD, SAMPLE_SOURCE_URL } from "@/lib/sample-jd";
 import { formatCandidateProfile } from "@/lib/candidate-profile";
-import {
-  readCloudCachedAnalysis,
-  upsertCloudJob,
-  writeCloudCachedAnalysis
-} from "@/lib/storage/cloud-sync";
-import {
-  createAnalysisCacheKey,
-  createInitialStatusHistory,
-  readCachedAnalysis,
-  saveJob,
-  writeCachedAnalysis
-} from "@/lib/storage/jobs";
+import { readCloudCachedAnalysis, upsertCloudJob, writeCloudCachedAnalysis } from "@/lib/storage/cloud-sync";
+import { createAnalysisCacheKey, createInitialStatusHistory, readCachedAnalysis, saveJob, writeCachedAnalysis } from "@/lib/storage/jobs";
 import { loadCandidateProfile } from "@/lib/storage/candidate-profile";
 import { JobAnalysis, JobRecord } from "@/types/job";
 import type { CreditBalance } from "@/types/credits";
 
-type AnalyzeResponse = {
-  analysis?: JobAnalysis;
-  cached?: boolean;
-  credits?: CreditBalance;
-  error?: string;
-  message?: {
-    en: string;
-    zh: string;
-  };
-  code?:
-    | "missing_api_key"
-    | "analysis_failed"
-    | "credits_exhausted"
-    | "empty_jd"
-    | "jd_too_short"
-    | "jd_too_long";
-};
+type AnalyzeResponse = { analysis?: JobAnalysis; cached?: boolean; credits?: CreditBalance; error?: string; message?: { en: string; zh: string }; code?: "missing_api_key" | "analysis_failed" | "credits_exhausted" | "credits_unavailable" | "empty_jd" | "jd_too_short" | "jd_too_long" };
 
-export function AddJobForm({
-  initialRawJd = "",
-  initialSourceUrl = "",
-  samplePrefilled = false
-}: {
-  initialRawJd?: string;
-  initialSourceUrl?: string;
-  samplePrefilled?: boolean;
-}) {
+const CHANNEL_CHIPS = ["公司官网", "LinkedIn", "Seek", "Indeed", "内推", "其他"];
+
+const ANALYSIS_STEPS = [
+  { en: "Parsing job description", zh: "解析岗位描述" },
+  { en: "Matching skills & experience", zh: "匹配技能与经验" },
+  { en: "Evaluating education fit", zh: "评估教育背景匹配度" },
+  { en: "Analyzing industry alignment", zh: "分析行业契合度" },
+  { en: "Generating score & recommendations", zh: "生成综合评分建议" },
+];
+
+const STEP_DETAILS = [
+  { en: "Extracting role, requirements, and keywords from the job description.", zh: "从职位描述中提取岗位类型、要求和关键词。" },
+  { en: "Comparing your technical skills and experience with the job requirements.", zh: "正在比较你的候选人画像与 JD 中的技能和经验要求。" },
+  { en: "Checking education level match against the job posting.", zh: "正在对比 JD 中的学历要求与你的教育背景。" },
+  { en: "Assessing industry alignment and domain knowledge fit.", zh: "正在分析行业契合度和领域知识匹配情况。" },
+  { en: "Computing final match score and generating next-action recommendations.", zh: "正在计算综合匹配评分并生成下一步行动建议。" },
+];
+
+export function AddJobForm({ initialRawJd = "", initialSourceUrl = "", samplePrefilled = false }: { initialRawJd?: string; initialSourceUrl?: string; samplePrefilled?: boolean }) {
   const router = useRouter();
   const { language, t } = useLanguage();
   const { accountStatus, session } = useAuth();
-  const {
-    status: creditsStatus,
-    refreshCredits,
-    updateCredits
-  } = useGuestCredits();
+  const { status: creditsStatus, refreshCredits, updateCredits } = useGuestCredits();
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl);
   const [deadline, setDeadline] = useState("");
   const [applicationChannel, setApplicationChannel] = useState("");
@@ -76,400 +54,270 @@ export function AddJobForm({
   const [error, setError] = useState("");
   const [info, setInfo] = useState(samplePrefilled ? t.sampleLoaded : "");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const creditsLabel = accountStatus.credits.adminBypass
-    ? t.adminCreditsLabel
-    : creditsStatus
-    ? formatTemplate(t.creditsRemaining, {
-        remaining: creditsStatus.credits.remaining,
-        limit: creditsStatus.credits.limit
-      })
-    : "";
+  const [analysisStep, setAnalysisStep] = useState(0);
+  const [optionalExpanded, setOptionalExpanded] = useState(false);
 
-  const fillSampleJd = () => {
-    setRawJd(SAMPLE_JD);
-    setSourceUrl((currentValue) => currentValue || SAMPLE_SOURCE_URL);
-    setError("");
-    setInfo(t.sampleLoaded);
-  };
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const interval = setInterval(() => { setAnalysisStep((s) => (s + 1) % ANALYSIS_STEPS.length); }, ANALYSIS_STEP_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
+
+  const creditsRemaining = creditsStatus ? `${creditsStatus.credits.remaining} / ${creditsStatus.credits.limit}` : "—";
+  const hasAi = creditsStatus && !creditsStatus.demoMode;
+  const jdLen = rawJd.trim().length;
+  const jdValid = jdLen >= MIN_JD_TEXT_LENGTH && jdLen <= MAX_JD_TEXT_LENGTH;
+
+  const fillSampleJd = () => { setRawJd(SAMPLE_JD); setSourceUrl((c) => c || SAMPLE_SOURCE_URL); setError(""); setInfo(t.sampleLoaded); };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-    setInfo("");
-
+    event.preventDefault(); setError(""); setInfo("");
     const rawJdText = rawJd.trim();
-    trackProductEvent("analyze_jd_clicked", {
-      source: "add_job_form",
-      jdLength: rawJdText.length,
-      hasSourceUrl: Boolean(sourceUrl.trim())
-    });
-
-    if (!rawJdText) {
-      setError(t.rawJdRequired);
-      return;
-    }
-
-    if (rawJdText.length < MIN_JD_TEXT_LENGTH) {
-      setError(t.rawJdTooShort);
-      return;
-    }
-
-    if (rawJdText.length > MAX_JD_TEXT_LENGTH) {
-      setError(t.rawJdTooLong);
-      return;
-    }
+    trackProductEvent("analyze_jd_clicked", { source: "add_job_form", jdLength: rawJdText.length, hasSourceUrl: Boolean(sourceUrl.trim()) });
+    if (!rawJdText) { setError(t.rawJdRequired); return; }
+    if (rawJdText.length < MIN_JD_TEXT_LENGTH) { setError(t.rawJdTooShort); return; }
+    if (rawJdText.length > MAX_JD_TEXT_LENGTH) { setError(t.rawJdTooLong); return; }
 
     const candidateProfileText = formatCandidateProfile(loadCandidateProfile());
     const cacheKey = createAnalysisCacheKey(rawJdText, candidateProfileText);
-    const cachedAnalysis =
-      readCachedAnalysis(cacheKey) ??
-      (await readCloudCachedAnalysis(session, cacheKey));
+    const cachedAnalysis = readCachedAnalysis(cacheKey) ?? (await readCloudCachedAnalysis(session, cacheKey));
 
     if (cachedAnalysis) {
-      writeCachedAnalysis(cacheKey, cachedAnalysis);
-      setInfo(t.analysisCached);
-      const job = createJobRecord({
-        analysis: cachedAnalysis,
-        sourceUrl,
-        rawJd: rawJdText,
-        notes,
-        deadline,
-        applicationChannel,
-        contactPerson,
-        interviewDate,
-        followUpNotes
-      });
-      saveJob(job);
-      void upsertCloudJob(session, job);
-      trackProductEvent("job_added", {
-        cached: true,
-        matchScore: job.match_score,
-        recommendation: job.application_recommendation
-      });
-      router.push(`/jobs/${job.id}`);
-      return;
+      writeCachedAnalysis(cacheKey, cachedAnalysis); setInfo(t.analysisCached);
+      const job = createJobRecord({ analysis: cachedAnalysis, sourceUrl, rawJd: rawJdText, notes, deadline, applicationChannel, contactPerson, interviewDate, followUpNotes });
+      saveJob(job); void upsertCloudJob(session, job);
+      trackProductEvent("job_added", { cached: true, matchScore: job.match_score, recommendation: job.application_recommendation });
+      router.push(`/jobs/${job.id}`); return;
     }
 
     const latestCreditsStatus = await refreshCredits();
+    if (!latestCreditsStatus) { setError(t.creditsUnavailable); return; }
+    if (latestCreditsStatus.demoMode) { setError(t.demoModeAnalyzeUnavailable); return; }
+    if (!accountStatus.credits.adminBypass && latestCreditsStatus.credits.remaining < latestCreditsStatus.credits.costPerAnalysis) { setError(t.creditsExhausted); return; }
 
-    if (!latestCreditsStatus) {
-      setError(t.creditsUnavailable);
-      return;
-    }
-
-    if (latestCreditsStatus.demoMode) {
-      setError(t.demoModeAnalyzeUnavailable);
-      return;
-    }
-
-    if (
-      !accountStatus.credits.adminBypass &&
-      latestCreditsStatus.credits.remaining <
-      latestCreditsStatus.credits.costPerAnalysis
-    ) {
-      setError(t.creditsExhausted);
-      return;
-    }
-
-    setIsAnalyzing(true);
-
+    setIsAnalyzing(true); setAnalysisStep(0);
     try {
-      const response = await fetch("/api/analyze-job", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token
-            ? { authorization: `Bearer ${session.access_token}` }
-            : {})
-        },
-        body: JSON.stringify({
-          source_url: sourceUrl.trim() || undefined,
-          raw_jd: rawJdText,
-          candidate_profile: candidateProfileText
-        })
-      });
-
+      const response = await fetch("/api/analyze-job", { method: "POST", headers: { "Content-Type": "application/json", ...(session?.access_token ? { authorization: `Bearer ${session.access_token}` } : {}) }, body: JSON.stringify({ source_url: sourceUrl.trim() || undefined, raw_jd: rawJdText, candidate_profile: candidateProfileText }) });
       const payload = (await response.json().catch(() => ({}))) as AnalyzeResponse;
-
-      if (payload.credits) {
-        updateCredits(payload.credits);
-      }
-
-      if (!response.ok || !payload.analysis) {
-        throw new Error(getAnalyzeErrorMessage(payload, language, t));
-      }
-
-      writeCachedAnalysis(cacheKey, payload.analysis);
-      void writeCloudCachedAnalysis(session, cacheKey, payload.analysis);
-      const job = createJobRecord({
-        analysis: payload.analysis,
-        sourceUrl,
-        rawJd: rawJdText,
-        notes,
-        deadline,
-        applicationChannel,
-        contactPerson,
-        interviewDate,
-        followUpNotes
-      });
-      saveJob(job);
-      void upsertCloudJob(session, job);
-      trackProductEvent("job_added", {
-        cached: false,
-        matchScore: job.match_score,
-        recommendation: job.application_recommendation
-      });
+      if (payload.credits) updateCredits(payload.credits);
+      if (!response.ok || !payload.analysis) throw new Error(getAnalyzeErrorMessage(payload, language, t));
+      writeCachedAnalysis(cacheKey, payload.analysis); void writeCloudCachedAnalysis(session, cacheKey, payload.analysis);
+      const job = createJobRecord({ analysis: payload.analysis, sourceUrl, rawJd: rawJdText, notes, deadline, applicationChannel, contactPerson, interviewDate, followUpNotes });
+      saveJob(job); void upsertCloudJob(session, job);
+      trackProductEvent("job_added", { cached: false, matchScore: job.match_score, recommendation: job.application_recommendation });
       router.push(`/jobs/${job.id}`);
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : t.analysisFailed
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
+    } catch (submitError) { setError(submitError instanceof Error ? submitError.message : t.analysisFailed); }
+    finally { setIsAnalyzing(false); }
   };
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-ink">{t.addJob}</h1>
-        <p className="mt-1 text-sm text-muted">{t.defaultProfileHint}</p>
+        <h1 className="text-[22px] font-semibold tracking-tight text-primary">{t.addJob}</h1>
+        <p className="mt-1 text-[14px] text-secondary">{t.defaultProfileHint}</p>
       </div>
 
-      <section className="rounded-panel border border-line bg-white p-4 shadow-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              {creditsStatus?.demoMode ? t.demoModeLabel : t.analyzeJd}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted">
-              {creditsStatus?.demoMode
-                ? t.demoModeMessage
-                : creditsStatus
-                  ? t.realAiReady
-                  : t.creditsHelper}
-            </p>
-          </div>
-          {creditsLabel ? (
-            <span className="inline-flex min-h-9 items-center rounded-app border border-line bg-surface-muted px-3 text-sm font-semibold text-ink">
-              {creditsLabel}
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-2 text-xs leading-5 text-muted">{t.creditsHelper}</p>
-      </section>
-
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5 rounded-panel border border-line bg-white p-4 shadow-soft sm:p-5"
-      >
-        <div className="space-y-2">
-          <Label htmlFor="source-url">{t.sourceUrl}</Label>
-          <Input
-            id="source-url"
-            type="url"
-            value={sourceUrl}
-            onChange={(event) => setSourceUrl(event.target.value)}
-            placeholder={t.sourceUrlPlaceholder}
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="deadline">{t.deadline}</Label>
-            <Input
-              id="deadline"
-              type="date"
-              value={deadline}
-              onChange={(event) => setDeadline(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="interview-date">{t.interviewDate}</Label>
-            <Input
-              id="interview-date"
-              type="datetime-local"
-              value={interviewDate}
-              onChange={(event) => setInterviewDate(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="application-channel">{t.applicationChannel}</Label>
-            <Input
-              id="application-channel"
-              value={applicationChannel}
-              onChange={(event) => setApplicationChannel(event.target.value)}
-              placeholder={t.applicationChannelPlaceholder}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="contact-person">{t.contactPerson}</Label>
-            <Input
-              id="contact-person"
-              value={contactPerson}
-              onChange={(event) => setContactPerson(event.target.value)}
-              placeholder={t.contactPersonPlaceholder}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
+      {/* AI / quota card */}
+      {creditsStatus ? (
+        <section className="rounded-xl border border-black/[0.04] bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Label htmlFor="raw-jd">{t.rawJd}</Label>
-            <a
-              href="/add?sample=1"
-              onClick={(event) => {
-                event.preventDefault();
-                fillSampleJd();
-              }}
-              className="inline-flex min-h-10 w-full items-center justify-center rounded-app border border-line bg-white px-4 py-2 text-sm font-semibold text-ink shadow-soft transition duration-200 hover:border-line-strong hover:bg-surface-muted sm:min-h-9 sm:w-auto sm:px-3 sm:py-1.5"
-            >
-              {t.useSampleJd}
-            </a>
+            <div className="flex items-center gap-3">
+              {hasAi ? (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                  <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 16 16"><path d="M5 8.5l2 2 4-5M13.5 8a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/></svg>
+                </span>
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+                  <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 16 16"><path d="M8 10V6M8 3v1M13.5 8a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/></svg>
+                </span>
+              )}
+              <div>
+                <p className="text-[13px] font-semibold text-primary">
+                  {creditsStatus.demoMode ? t.demoModeLabel : (language === "zh" ? "AI 分析已启用" : "AI analysis ready")}
+                </p>
+                <p className="text-[12px] text-secondary">
+                  {creditsStatus.demoMode ? t.demoModeMessage : creditsStatus ? t.realAiReady : t.creditsHelper}
+                </p>
+              </div>
+            </div>
+            {!accountStatus.credits.adminBypass ? (
+              <span className="inline-flex items-center rounded-lg border border-black/[0.06] bg-[#FAFAFA] px-3 py-1.5 text-[13px] font-medium text-secondary">
+                {language === "zh" ? "剩余额度" : "Credits"}: {creditsRemaining}
+              </span>
+            ) : (
+              <span className="rounded-lg border border-black/[0.06] bg-[#FAFAFA] px-3 py-1.5 text-[12px] text-secondary/50">{t.adminCreditsLabel}</span>
+            )}
           </div>
-          <Textarea
-            id="raw-jd"
-            value={rawJd}
-            onChange={(event) => setRawJd(event.target.value)}
-            placeholder={t.rawJdPlaceholder}
-            maxLength={MAX_JD_TEXT_LENGTH}
-            rows={14}
-            required
-          />
-          <p className="text-xs text-muted">{t.jdLengthHelper}</p>
-        </div>
+        </section>
+      ) : null}
 
-        <div className="space-y-2">
-          <Label htmlFor="follow-up-notes">{t.followUpNotes}</Label>
-          <Textarea
-            id="follow-up-notes"
-            value={followUpNotes}
-            onChange={(event) => setFollowUpNotes(event.target.value)}
-            placeholder={t.followUpNotesPlaceholder}
-            rows={4}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="notes">{t.notes}</Label>
-          <Textarea
-            id="notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder={t.notesPlaceholder}
-            rows={4}
-          />
-        </div>
-
-        {error ? (
-          <div className="rounded-app border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-danger">
-            {error}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Main JD card */}
+        <section className="rounded-xl border border-black/[0.04] bg-white p-5 shadow-sm">
+          <div className="space-y-2">
+            <Label htmlFor="source-url">{t.sourceUrl}</Label>
+            <Input id="source-url" type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder={t.sourceUrlPlaceholder} />
           </div>
-        ) : null}
 
-        {info ? (
-          <div className="rounded-app border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-            {info}
+          <div className="mt-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="raw-jd">{t.rawJd}</Label>
+              <button type="button" onClick={fillSampleJd} className="text-[12px] font-medium text-accent transition-colors hover:text-accent-hover">
+                {t.useSampleJd}
+              </button>
+            </div>
+            <Textarea id="raw-jd" value={rawJd} onChange={(e) => setRawJd(e.target.value)} placeholder={t.rawJdPlaceholder} maxLength={MAX_JD_TEXT_LENGTH} rows={16} required
+              className="min-h-[300px]" />
+            <div className="flex items-center justify-between text-[12px]">
+              <span className="text-secondary/50">{language === "zh" ? "粘贴完整 JD，包括职责、要求、技能、地点、工作模式和申请说明。" : "Paste full JD with responsibilities, requirements, skills, location, and work mode."}</span>
+              <span className="text-secondary/40">{jdLen} / {MAX_JD_TEXT_LENGTH}</span>
+            </div>
+            <p className="text-[12px] text-secondary/50">{language === "zh" ? "建议长度：80–12,000 字符。支持英文 JD，系统会输出中文解释。" : "80–12,000 characters. English JDs supported with Chinese explanations."}</p>
           </div>
-        ) : null}
+        </section>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <Button type="submit" disabled={isAnalyzing} className="w-full sm:w-auto">
-            {isAnalyzing ? t.analyzing : t.analyzeAndSaveJob}
-          </Button>
+        {/* Optional tracking details (collapsible) */}
+        <section className="rounded-xl border border-black/[0.04] bg-white shadow-sm">
+          <button type="button" onClick={() => setOptionalExpanded((v) => !v)} className="flex w-full items-center justify-between px-5 py-4 text-left">
+            <div>
+              <span className="text-[14px] font-semibold text-primary">{language === "zh" ? "申请跟进信息（可选）" : "Application tracking (optional)"}</span>
+              <span className="ml-2 text-[12px] text-secondary/50">{language === "zh" ? "用于管理申请进度" : "For progress tracking"}</span>
+            </div>
+            <svg className={`h-4 w-4 text-secondary/40 transition-transform ${optionalExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg>
+          </button>
+          {optionalExpanded ? (
+            <div className="border-t border-black/[0.04] px-5 py-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="deadline">{t.deadline}</Label>
+                  <Input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="interview-date">{t.interviewDate}</Label>
+                  <Input id="interview-date" type="datetime-local" value={interviewDate} onChange={(e) => setInterviewDate(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t.applicationChannel}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {CHANNEL_CHIPS.map((chip) => (
+                    <button key={chip} type="button" onClick={() => setApplicationChannel((c) => c === chip ? "" : chip)}
+                      className={`rounded-full border px-3 py-1 text-[12px] font-medium transition-colors ${applicationChannel === chip ? "border-accent/20 bg-accent-subtle/40 text-accent" : "border-black/[0.06] bg-[#FAFAFA] text-secondary hover:border-black/[0.1]"}`}>
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+                <Input value={applicationChannel} onChange={(e) => setApplicationChannel(e.target.value)} placeholder={language === "zh" ? "或手动输入..." : "Or type manually..."} className="mt-1" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contact-person">{t.contactPerson}</Label>
+                <Input id="contact-person" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={t.contactPersonPlaceholder} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">{t.notes}</Label>
+                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t.notesPlaceholder} rows={3} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="follow-up-notes">{t.followUpNotes}</Label>
+                <Textarea id="follow-up-notes" value={followUpNotes} onChange={(e) => setFollowUpNotes(e.target.value)} placeholder={t.followUpNotesPlaceholder} rows={3} />
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        {error ? <div className="rounded-lg border border-red-200 bg-red-50/50 px-4 py-3 text-[13px] text-red-700">{error}</div> : null}
+        {info ? <div className="rounded-lg border border-green-200 bg-green-50/50 px-4 py-3 text-[13px] text-green-700">{info}</div> : null}
+
+        <div className="flex justify-end">
+          {isAnalyzing ? (
+            <AnalysisLoadingPanel steps={ANALYSIS_STEPS} details={STEP_DETAILS} currentStep={analysisStep} language={language} />
+          ) : (
+            <Button type="submit" disabled={!jdValid} className="min-h-12 px-8 text-[15px] font-medium">
+              {t.analyzeAndSaveJob}
+            </Button>
+          )}
         </div>
       </form>
     </div>
   );
 }
 
-function getAnalyzeErrorMessage(
-  payload: AnalyzeResponse,
-  language: "en" | "zh",
-  t: ReturnType<typeof useLanguage>["t"]
-) {
-  if (payload.message) {
-    return payload.message[language];
-  }
+/* ── Analysis loading panel ── */
+function AnalysisLoadingPanel({ steps, details, currentStep, language }: { steps: typeof ANALYSIS_STEPS; details: typeof STEP_DETAILS; currentStep: number; language: "en" | "zh" }) {
+  return (
+    <div className="w-full rounded-xl border border-black/[0.04] bg-white p-6 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+          <span className="absolute inset-0 animate-ping rounded-full bg-accent/10" />
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+            <svg className="h-5 w-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M8 14a4 4 0 0 1 8 0"/><path d="M2 22c0-5.523 4.477-10 10-10s10 4.477 10 10"/></svg>
+          </span>
+        </div>
+        <div>
+          <p className="text-[15px] font-semibold text-primary">{language === "zh" ? "AI 正在分析岗位" : "AI is analyzing the job"}</p>
+          <p className="text-[13px] text-secondary">{language === "zh" ? "预计 10–30 秒，请不要关闭页面。" : "10–30 seconds expected. Please keep this page open."}</p>
+        </div>
+      </div>
 
-  switch (payload.code) {
-    case "missing_api_key":
-      return t.demoModeAnalyzeUnavailable;
-    case "credits_exhausted":
-      return t.creditsExhausted;
-    case "empty_jd":
-      return t.rawJdRequired;
-    case "jd_too_short":
-      return t.rawJdTooShort;
-    case "jd_too_long":
-      return t.rawJdTooLong;
-    case "analysis_failed":
-      return t.analysisFailed;
-    default:
-      return payload.error || t.analysisFailed;
-  }
-}
+      {/* Steps timeline */}
+      <div className="mt-5 space-y-1.5">
+        {steps.map((step, i) => {
+          const done = i < currentStep;
+          const active = i === currentStep;
+          return (
+            <div key={step.en} className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${active ? "bg-accent-subtle/30" : ""}`}>
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${done ? "bg-green-100 text-green-600" : active ? "bg-accent text-white" : "bg-black/[0.04] text-secondary/30"}`}>
+                {done ? <svg fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" viewBox="0 0 10 10" className="h-3 w-3"><path d="M1 5l3 3 5-6"/></svg> : active ? <span className="h-1.5 w-1.5 rounded-full bg-white"/> : i + 1}
+              </span>
+              <span className={`text-[13px] ${done ? "text-green-700" : active ? "font-medium text-accent" : "text-secondary/30"}`}>
+                {language === "zh" ? step.zh : step.en}
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
-function formatTemplate(
-  template: string,
-  values: Record<string, string | number>
-) {
-  return Object.entries(values).reduce(
-    (text, [key, value]) => text.replace(`{${key}}`, String(value)),
-    template
+      {/* Current step detail */}
+      <p className="mt-3 text-[12px] leading-relaxed text-secondary/60">
+        <span className="font-medium text-secondary">{language === "zh" ? "当前步骤" : "Current step"}: </span>
+        {language === "zh" ? details[currentStep].zh : details[currentStep].en}
+      </p>
+
+      {/* Subtle progress bar */}
+      <div className="mt-3 h-0.5 w-full overflow-hidden rounded-full bg-black/[0.04]">
+        <div className="h-full rounded-full bg-accent/40" style={{ width: `${((currentStep + 1) / steps.length) * 100}%`, transition: "width 0.8s ease-out" }} />
+      </div>
+    </div>
   );
 }
 
-function createJobRecord({
-  analysis,
-  sourceUrl,
-  rawJd,
-  notes,
-  deadline,
-  applicationChannel,
-  contactPerson,
-  interviewDate,
-  followUpNotes
-}: {
-  analysis: JobAnalysis;
-  sourceUrl: string;
-  rawJd: string;
-  notes: string;
-  deadline: string;
-  applicationChannel: string;
-  contactPerson: string;
-  interviewDate: string;
-  followUpNotes: string;
-}): JobRecord {
-  const now = new Date().toISOString();
+/* ── Helpers ── */
 
-  return {
-    ...analysis,
-    id: createId(),
-    application_status: "Not Applied",
-    application_deadline: deadline,
-    application_channel: applicationChannel.trim(),
-    contact_person: contactPerson.trim(),
-    interview_date: interviewDate,
-    follow_up_notes: followUpNotes.trim(),
-    status_history: createInitialStatusHistory(now),
-    source_url: sourceUrl.trim(),
-    raw_jd: rawJd,
-    notes: notes.trim(),
-    created_at: now,
-    updated_at: now
-  };
+function getAnalyzeErrorMessage(payload: AnalyzeResponse, language: "en" | "zh", t: ReturnType<typeof useLanguage>["t"]) {
+  if (payload.message) return payload.message[language];
+  switch (payload.code) {
+    case "missing_api_key": return t.demoModeAnalyzeUnavailable;
+    case "credits_exhausted": return t.creditsExhausted;
+    case "credits_unavailable": return t.creditsUnavailable;
+    case "empty_jd": return t.rawJdRequired;
+    case "jd_too_short": return t.rawJdTooShort;
+    case "jd_too_long": return t.rawJdTooLong;
+    case "analysis_failed": return t.analysisFailed;
+    default: return payload.error || t.analysisFailed;
+  }
+}
+
+function createJobRecord({ analysis, sourceUrl, rawJd, notes, deadline, applicationChannel, contactPerson, interviewDate, followUpNotes }: { analysis: JobAnalysis; sourceUrl: string; rawJd: string; notes: string; deadline: string; applicationChannel: string; contactPerson: string; interviewDate: string; followUpNotes: string }): JobRecord {
+  const now = new Date().toISOString();
+  return { ...analysis, id: createId(), application_status: "Not Applied", application_deadline: deadline, application_channel: applicationChannel.trim(), contact_person: contactPerson.trim(), interview_date: interviewDate, follow_up_notes: followUpNotes.trim(), status_history: createInitialStatusHistory(now), source_url: sourceUrl.trim(), raw_jd: rawJd, notes: notes.trim(), created_at: now, updated_at: now };
 }
 
 function createId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

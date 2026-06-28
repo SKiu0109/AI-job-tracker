@@ -19,7 +19,12 @@ function isVercelServerless(): boolean {
  */
 export function resolvePersistencePath(filename: string): string {
   if (isVercelServerless()) return "";
-  return path.resolve(process.cwd(), ".workbuddy", "cache", filename);
+  return path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    ".workbuddy",
+    "cache",
+    filename
+  );
 }
 
 /**
@@ -84,7 +89,10 @@ export class PersistentMap<K extends string, V> {
     this.dirty = false;
     this.saveTimer = null;
     if (!path.isAbsolute(filePath)) {
-      this.filePath = path.resolve(process.cwd(), filePath);
+      this.filePath = path.resolve(
+        /* turbopackIgnore: true */ process.cwd(),
+        filePath
+      );
     }
   }
 

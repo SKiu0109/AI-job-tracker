@@ -1,6 +1,9 @@
-import { readFile } from "fs/promises";
-import { createRequire } from "module";
-import path from "path";
+// pdfjs-dist ESM expects browser DOM APIs
+if (!("DOMMatrix" in globalThis)) {
+  (globalThis as Record<string, unknown>).DOMMatrix = class {
+    static fromMatrix() { return new (this as new () => unknown)(); }
+  };
+}
 
 const MAX_RESUME_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_RESUME_TEXT_LENGTH = 18000;
@@ -9,9 +12,6 @@ const MIN_RESUME_TEXT_LENGTH = 80;
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const PDF_MIME = "application/pdf";
-
-let cachedPdfWorkerDataUrl: string | null = null;
-const nodeRequire = createRequire(import.meta.url);
 
 export type ResumeTextExtractionCode =
   | "resume_too_large"
@@ -91,8 +91,6 @@ async function extractDocxText(buffer: Buffer) {
 async function extractPdfText(buffer: Buffer) {
   const { PDFParse } = await import("pdf-parse");
 
-  PDFParse.setWorker(await getPdfWorkerDataUrl());
-
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
 
   try {
@@ -101,41 +99,6 @@ async function extractPdfText(buffer: Buffer) {
   } finally {
     await parser.destroy();
   }
-}
-
-async function getPdfWorkerDataUrl() {
-  if (cachedPdfWorkerDataUrl) {
-    return cachedPdfWorkerDataUrl;
-  }
-
-  const packageRoot = getPdfParsePackageRoot();
-  const workerCandidates = [
-    path.join(packageRoot, "dist", "pdf-parse", "esm", "pdf.worker.mjs"),
-    path.join(packageRoot, "dist", "pdf-parse", "cjs", "pdf.worker.mjs"),
-    path.join(packageRoot, "dist", "worker", "pdf.worker.mjs")
-  ];
-
-  for (const candidate of workerCandidates) {
-    try {
-      const workerSource = await readFile(candidate);
-      cachedPdfWorkerDataUrl = `data:text/javascript;base64,${workerSource.toString(
-        "base64"
-      )}`;
-      return cachedPdfWorkerDataUrl;
-    } catch {
-      // Try the next package layout; pnpm and npm place this file differently.
-    }
-  }
-
-  throw new ResumeTextExtractionError(
-    "resume_text_empty",
-    "Could not load the PDF parser worker. Please try uploading a .docx resume instead."
-  );
-}
-
-function getPdfParsePackageRoot() {
-  const entryDirectory = path.dirname(nodeRequire.resolve("pdf-parse"));
-  return path.resolve(entryDirectory, "..", "..", "..");
 }
 
 function normalizeExtractedText(text: string) {

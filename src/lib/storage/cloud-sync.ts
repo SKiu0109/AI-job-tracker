@@ -31,8 +31,12 @@ export async function hydrateJobsFromCloud(session: Session | null) {
 
   const localJobs = loadJobs();
   const cloudJobs = await loadCloudJobs(session);
-  const mergedJobs = mergeJobs(localJobs, cloudJobs);
 
+  if (cloudJobs === null) {
+    return localJobs;
+  }
+
+  const mergedJobs = mergeJobs(localJobs, cloudJobs);
   saveJobs(mergedJobs);
 
   if (mergedJobs.length > 0) {
@@ -46,7 +50,7 @@ export async function loadCloudJobs(session: Session | null) {
   const supabase = getSupabaseBrowserClient();
 
   if (!supabase || !session) {
-    return [];
+    return null;
   }
 
   const { data, error } = await supabase
@@ -56,7 +60,7 @@ export async function loadCloudJobs(session: Session | null) {
 
   if (error) {
     console.warn("[cloud-sync:loadJobs]", error.message);
-    return [];
+    return null;
   }
 
   return ((data ?? []) as CloudJobRow[])
@@ -140,6 +144,10 @@ export async function hydrateCandidateProfileFromCloud(
 
   const cloudProfile = await loadCloudCandidateProfile(session);
 
+  if (cloudProfile === undefined) {
+    return loadCandidateProfile();
+  }
+
   if (cloudProfile) {
     saveCandidateProfile(cloudProfile);
     return loadCandidateProfile();
@@ -154,7 +162,7 @@ export async function loadCloudCandidateProfile(session: Session | null) {
   const supabase = getSupabaseBrowserClient();
 
   if (!supabase || !session) {
-    return null;
+    return undefined;
   }
 
   const { data, error } = await supabase
@@ -165,7 +173,7 @@ export async function loadCloudCandidateProfile(session: Session | null) {
 
   if (error) {
     console.warn("[cloud-sync:loadProfile]", error.message);
-    return null;
+    return undefined;
   }
 
   return (data as CloudProfileRow | null)?.payload ?? null;

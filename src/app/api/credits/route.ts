@@ -14,7 +14,7 @@ import {
   getOrCreateGuestSession,
   GUEST_ID_COOKIE
 } from "@/lib/server/guest-session";
-import type { CreditsStatusResponse } from "@/types/credits";
+import type { CreditBalance, CreditsStatusResponse } from "@/types/credits";
 
 export const runtime = "nodejs";
 
@@ -27,9 +27,30 @@ export async function GET(request: NextRequest) {
     getBearerToken(request.headers.get("authorization"))
   );
   const isAdmin = isAdminEmail(authUser?.email);
-  const credits = authUser
-    ? await getAuthenticatedCredits(authUser.id, authUser.email)
-    : await getCreditsService().getBalance(guestSession.guestId);
+  let credits: CreditBalance;
+
+  try {
+    credits = authUser
+      ? await getAuthenticatedCredits(authUser.id, authUser.email)
+      : await getCreditsService().getBalance(guestSession.guestId);
+  } catch (error) {
+    console.error(
+      "Credits status unavailable",
+      error instanceof Error ? error.message : String(error)
+    );
+
+    const response = NextResponse.json(
+      {
+        code: "credits_unavailable",
+        error:
+          "Credit storage is unavailable. Please check Supabase server configuration."
+      },
+      { status: 503 }
+    );
+    applyGuestSessionCookie(response, guestSession.guestId);
+    return response;
+  }
+
   const ai = getAiProviderConfigStatus({ useAdminConfig: isAdmin });
   const payload: CreditsStatusResponse = {
     credits: {
@@ -47,9 +68,8 @@ export async function GET(request: NextRequest) {
   };
   const response = NextResponse.json(payload);
 
-  // TODO: Add IP-based guest account creation limits, server-side rate
-  // limiting, persistent Supabase/Vercel KV/Upstash credit storage, and a
-  // login-based credit system before this becomes production enforcement.
+  // TODO: Add IP-based guest account creation limits and server-side rate
+  // limiting before this becomes broad public production enforcement.
   applyGuestSessionCookie(response, guestSession.guestId);
 
   return response;

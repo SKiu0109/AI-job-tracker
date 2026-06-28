@@ -13,7 +13,7 @@ export function Label({
   return (
     <label
       className={cn(
-        "text-sm font-semibold leading-none text-ink",
+        "text-sm font-semibold leading-none text-primary",
         className
       )}
       {...props}
@@ -28,7 +28,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "min-h-10 w-full rounded-app border border-line bg-white px-3 py-2 text-sm text-ink shadow-soft outline-none transition duration-200 placeholder:text-subtle hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent-soft",
+        "min-h-10 w-full rounded-app border bg-tertiary px-3 py-2 text-sm text-primary outline-none transition duration-200 placeholder:text-tertiary hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-subtle",
         className
       )}
       {...props}
@@ -43,7 +43,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "w-full rounded-app border border-line bg-white px-3 py-2 text-sm leading-6 text-ink shadow-soft outline-none transition duration-200 placeholder:text-subtle hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent-soft",
+        "w-full rounded-app border bg-tertiary px-3 py-2 text-sm leading-6 text-primary outline-none transition duration-200 placeholder:text-tertiary hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-subtle",
         className
       )}
       {...props}
@@ -58,7 +58,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "min-h-10 rounded-app border border-line bg-white px-3 py-2 text-sm text-ink shadow-soft outline-none transition duration-200 hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent-soft",
+        "min-h-10 rounded-app border bg-tertiary px-3 py-2 text-sm text-primary outline-none transition duration-200 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-subtle",
         className
       )}
       {...props}

@@ -9,6 +9,10 @@ import {
   persistLedgerMap,
   resolvePersistencePath
 } from "@/lib/server/file-persistence";
+import {
+  getSupabaseServerConfig,
+  shouldFailClosedForPersistentUserData
+} from "@/lib/server/supabase-config";
 import type { CreditBalance } from "@/types/credits";
 
 type UserCreditLedger = {
@@ -224,6 +228,22 @@ class FallbackUserCreditsService implements UserCreditsService {
   }
 }
 
+class UnavailableUserCreditsService implements UserCreditsService {
+  constructor(private readonly reason: string) {}
+
+  async getBalance(): Promise<ServerUserCreditBalance> {
+    throw new Error(this.reason);
+  }
+
+  async trySpend(): Promise<ServerUserCreditBalance | null> {
+    throw new Error(this.reason);
+  }
+
+  async refund(): Promise<ServerUserCreditBalance> {
+    throw new Error(this.reason);
+  }
+}
+
 const globalForUserCredits = globalThis as typeof globalThis & {
   __aiJobTrackerUserCredits?: Map<string, UserCreditLedger>;
 };
@@ -239,22 +259,22 @@ export function getUserCreditsService(): UserCreditsService {
     ledgers,
     persistencePath
   );
-  const supabaseUrl =
-    process.env.SUPABASE_URL ??
-    process.env.NEXT_PUBLIC_SUPABASE_URL ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL ??
-    process.env
-      .NEXT_PUBLIC_sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env
-      .sb_publishable_BpbXVKeLScG9bnq7IUYCeg_CZ6Tr4ey_SUPABASE_SERVICE_ROLE_KEY;
+  const { supabaseUrl, serviceRoleKey } = getSupabaseServerConfig();
 
   if (supabaseUrl && serviceRoleKey) {
-    return new FallbackUserCreditsService(
-      new SupabaseUserCreditsService(supabaseUrl, serviceRoleKey),
-      memoryService
+    const supabaseService = new SupabaseUserCreditsService(
+      supabaseUrl,
+      serviceRoleKey
+    );
+
+    return shouldFailClosedForPersistentUserData()
+      ? supabaseService
+      : new FallbackUserCreditsService(supabaseService, memoryService);
+  }
+
+  if (supabaseUrl && shouldFailClosedForPersistentUserData()) {
+    return new UnavailableUserCreditsService(
+      "Authenticated user credits require SUPABASE_SERVICE_ROLE_KEY in production."
     );
   }
 

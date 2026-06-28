@@ -2,6 +2,7 @@
 
 import {
   DEFAULT_CANDIDATE_PROFILE,
+  EMPTY_CANDIDATE_PROFILE,
   normalizeCandidateProfile
 } from "@/lib/candidate-profile";
 import { CandidateProfile } from "@/types/job";
@@ -10,15 +11,16 @@ const PROFILE_STORAGE_KEY = "ai-bilingual-job-tracker.candidate-profile.v1";
 
 export function loadCandidateProfile(): CandidateProfile {
   if (!canUseStorage()) {
-    return DEFAULT_CANDIDATE_PROFILE;
+    return { ...EMPTY_CANDIDATE_PROFILE };
   }
 
   try {
     const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
-    const value = raw ? (JSON.parse(raw) as Partial<CandidateProfile>) : null;
+    if (!raw) return { ...EMPTY_CANDIDATE_PROFILE };
+    const value = JSON.parse(raw) as Partial<CandidateProfile>;
     return normalizeCandidateProfile(value);
   } catch {
-    return DEFAULT_CANDIDATE_PROFILE;
+    return { ...EMPTY_CANDIDATE_PROFILE };
   }
 }
 

@@ -18,6 +18,7 @@ import {
   timelineStatusLabels
 } from "@/lib/i18n/dictionary";
 import { LANGUAGE_COOKIE_KEY } from "@/lib/i18n/constants";
+import { LANGUAGE_COOKIE_MAX_AGE } from "@/lib/constants";
 
 type LanguageContextValue = {
   language: Language;
@@ -47,7 +48,7 @@ export function LanguageProvider({
   const setLanguage = (nextLanguage: Language) => {
     setLanguageState(nextLanguage);
     window.localStorage.setItem(STORAGE_KEY, nextLanguage);
-    document.cookie = `${LANGUAGE_COOKIE_KEY}=${nextLanguage}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `${LANGUAGE_COOKIE_KEY}=${nextLanguage}; path=/; max-age=${LANGUAGE_COOKIE_MAX_AGE}; samesite=lax`;
   };
 
   const value = useMemo(

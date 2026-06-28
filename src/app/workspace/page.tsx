@@ -11,7 +11,7 @@ import { StatusSelect } from "@/components/jobs/status-select";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { trackProductEvent } from "@/lib/product/analytics";
-import { formatDate } from "@/lib/utils";
+import { MS_PER_DAY } from "@/lib/constants";
 import {
   deleteCloudJobs,
   hydrateJobsFromCloud,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/storage/cloud-sync";
 import { loadJobs, saveJobs, updateStoredJobStatus } from "@/lib/storage/jobs";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
+import { useDragOrder } from "@/hooks/use-drag-order";
 import {
   APPLICATION_STATUSES,
   ApplicationStatus,
@@ -95,7 +96,8 @@ export default function JobListPage() {
         const matchesSearch =
           !query ||
           job.company.toLowerCase().includes(query) ||
-          job.job_title_original.toLowerCase().includes(query);
+          job.job_title_original.toLowerCase().includes(query) ||
+          (job.job_title_en && job.job_title_en.toLowerCase().includes(query));
         const matchesStatus =
           statusFilter === "all" || job.application_status === statusFilter;
         const matchesJobType =
@@ -151,6 +153,22 @@ export default function JobListPage() {
   const allVisibleSelected =
     filteredJobIds.length > 0 && selectedVisibleCount === filteredJobIds.length;
   const analytics = useMemo(() => buildTrackerAnalytics(jobs), [jobs]);
+  const snapshotOrder = useDragOrder("snapshot-metric-order", [
+    "applications",
+    "averageMatchScore",
+    "interviewCount",
+    "offers",
+  ] as const);
+
+  const snapshotMetrics = useMemo(
+    () => ({
+      applications: { label: t.applications, value: analytics.totalJobs },
+      averageMatchScore: { label: t.averageMatchScore, value: `${analytics.averageMatchScore}%` },
+      interviewCount: { label: t.interviewCount, value: analytics.interviewCount },
+      offers: { label: t.offers, value: analytics.offerCount },
+    }),
+    [t, analytics],
+  );
 
   const handleStatusChange = (jobId: string, status: ApplicationStatus) => {
     const updatedJob = updateStoredJobStatus(jobId, status);
@@ -250,193 +268,204 @@ export default function JobListPage() {
 
   const locale = language === "zh" ? "zh-CN" : "en-AU";
 
+  if (!isLoaded) {
+    return (
+      <div className="rounded-xl border bg-tertiary p-6 text-sm text-secondary">
+        {t.analyzing}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <section className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="overflow-hidden rounded-panel border border-line bg-white shadow-panel">
-          <div className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-center">
-            <div className="max-w-3xl">
-              <h1 className="text-4xl font-semibold tracking-normal text-ink sm:text-5xl">
-              {t.trackerHeroTitle}
-              </h1>
-              <p className="mt-3 max-w-xl text-lg leading-7 text-ink">
-                {t.trackerHeroSubtitle}
-              </p>
-              <p className="mt-2 max-w-2xl text-base leading-7 text-muted">
-                {t.trackerHeroBody}
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Button variant="secondary" onClick={handleLoadSampleData}>
-                  {t.tryDemo}
-                </Button>
-                <ButtonLink href="/add" onClick={handleAnalyzeJdClick}>
-                  {t.analyzeAJd}
-                </ButtonLink>
-              </div>
-              <p className="mt-5 text-sm font-semibold text-muted">
-                {t.productTrustLine}
-              </p>
-            </div>
-            <HeroAnalysisPreview
-              jobDescriptionLabel={t.jobDescriptionPreview}
-              matchScoreLabel={t.matchScore}
-              greatFitLabel={t.heroGreatFit}
-              skillLabels={[t.skills, t.experience, t.businessCommunicationFit]}
-            />
-          </div>
-        </div>
-        <div className="grid gap-5">
-          <DashboardSnapshot
-            analytics={analytics}
-            hasJobs={jobs.length > 0}
-            labels={{
-              dashboard: t.dashboardSnapshot,
-              snapshot: t.snapshotLabel,
-              viewFullDashboard: t.viewFullDashboard,
-              applications: t.applications,
-              averageMatchScore: t.averageMatchScore,
-              interviews: t.interviewCount,
-              offers: t.offers,
-              matchScoreDistribution: t.matchScoreDistribution,
-              empty: t.demoSnapshotEmpty,
-              tryDemo: t.tryDemo
-            }}
-            onTryDemo={handleLoadSampleData}
-          />
-        </div>
-      </section>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      {/* ─── Compact header ─── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-ink">{t.jobList}</h2>
-          <p className="mt-1 text-sm font-medium text-muted">
-            {t.clickRowsHint}
+          <h1 className="text-2xl font-semibold tracking-tight text-primary">
+            {t.jobList}
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            {jobs.length
+              ? `${analytics.totalJobs} ${t.totalJobs.toLowerCase()}, ${analytics.averageMatchScore}% ${t.averageMatchScore.toLowerCase()}`
+              : t.trackerHeroSubtitle}
           </p>
         </div>
-        <ButtonLink
-          href="/add"
-          variant="secondary"
-          onClick={handleAnalyzeJdClick}
-        >
-          {t.emptyAction}
-        </ButtonLink>
+        <div className="flex flex-wrap gap-2">
+          {jobs.length === 0 ? (
+            <Button variant="secondary" onClick={handleLoadSampleData}>
+              {t.loadSampleData}
+            </Button>
+          ) : null}
+          <ButtonLink href="/add" onClick={handleAnalyzeJdClick}>
+            {t.emptyAction}
+          </ButtonLink>
+        </div>
       </div>
 
+      {/* ─── Dashboard snapshot ─── */}
+      {analytics.totalJobs > 0 ? (
+        <div className="rounded-xl border border-black/[0.04] bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {snapshotOrder.items.map((key) => {
+              const m = snapshotMetrics[key];
+              const isActive = snapshotOrder.activeId === key;
+              return (
+                <div
+                  key={key}
+                  draggable
+                  onDragStart={() => snapshotOrder.onDragStart(key)}
+                  onDragEnter={() => snapshotOrder.onDragEnter(key)}
+                  onDragEnd={snapshotOrder.onDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
+                  onTouchStart={(e) =>
+                    snapshotOrder.onTouchStart(key, e.currentTarget)
+                  }
+                  onTouchEnd={snapshotOrder.onTouchEnd}
+                  className={`group cursor-grab rounded-xl border border-black/[0.04] bg-[#FAFAFA] p-4 transition-all active:cursor-grabbing ${
+                    isActive
+                      ? "z-10 scale-[1.03] border-accent/30 shadow-md opacity-80"
+                      : "hover:border-black/[0.08] hover:shadow-sm"
+                  }`}
+                >
+                  <p className="text-[12px] font-medium text-secondary/70">{m.label}</p>
+                  <p className="mt-1 text-[24px] font-semibold tracking-tight text-primary">
+                    {m.value}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[12px]">
+            <Link href="/dashboard" className="font-medium text-accent transition-colors hover:text-accent-hover">
+              {t.viewFullDashboard} →
+            </Link>
+            <span className="text-secondary/40">{t.dashboardSnapshot}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ─── Success message ─── */}
       {message ? (
-        <div className="rounded-app border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        <div className="rounded-lg border border-score-high-border bg-score-high-bg px-4 py-3 text-[13px] font-medium text-score-high">
           {message}
         </div>
       ) : null}
 
-      <section className="rounded-panel border border-line bg-white p-4 shadow-soft sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_150px_150px_160px_auto_auto] lg:items-end">
-          <label className="space-y-1.5">
-            <span className="text-sm font-semibold text-ink">{t.search}</span>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t.searchPlaceholder}
-            />
-          </label>
-
-          <label className="space-y-1.5">
-            <span className="text-sm font-semibold text-ink">{t.status}</span>
-            <Select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as ApplicationStatus | "all")
-              }
-              className="w-full"
-            >
-              <option value="all">{t.allStatuses}</option>
-              {APPLICATION_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {statuses[status]}
-                </option>
-              ))}
-            </Select>
-          </label>
-
-          <label className="space-y-1.5">
-            <span className="text-sm font-semibold text-ink">
-              {t.matchFilter}
-            </span>
-            <Select
-              value={matchFilter}
-              onChange={(event) =>
-                setMatchFilter(event.target.value as MatchFilter)
-              }
-              className="w-full"
-            >
-              <option value="all">{t.allMatches}</option>
-              <option value="high">{t.highMatch}</option>
-              <option value="medium">{t.mediumMatch}</option>
-              <option value="low">{t.lowMatch}</option>
-            </Select>
-          </label>
-
-          <label className="space-y-1.5">
-            <span className="text-sm font-semibold text-ink">
-              {t.deadlineFilter}
-            </span>
-            <Select
-              value={deadlineFilter}
-              onChange={(event) =>
-                setDeadlineFilter(event.target.value as DeadlineFilter)
-              }
-              className="w-full"
-            >
-              <option value="all">{t.allDeadlines}</option>
-              <option value="overdue">{t.overdue}</option>
-              <option value="next7">{t.dueNext7}</option>
-              <option value="next30">{t.dueNext30}</option>
-              <option value="none">{t.noDeadline}</option>
-            </Select>
-          </label>
-
-          <Button
-            variant="secondary"
-            onClick={() => setShowAdvancedFilters((current) => !current)}
-            className="w-full lg:w-auto"
-          >
-            {t.moreFilters}
-          </Button>
-          <Button variant="secondary" onClick={handleExportCsv}>
-            {t.exportCsv}
-          </Button>
-          <ButtonLink
-            href="/add"
-            className="w-full lg:w-auto"
-            onClick={handleAnalyzeJdClick}
-          >
-            {t.addJobAction}
-          </ButtonLink>
+      {/* ─── Job count + batch actions header ─── */}
+      {jobs.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-secondary">
+            {filteredJobs.length} {t.totalJobs.toLowerCase()}
+          </p>
+          {selectedJobIds.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/10 bg-accent-subtle/30 px-3 py-2">
+              <span className="text-[12px] font-medium text-accent">{selectedJobIds.length} {t.selectedJobs.toLowerCase()}</span>
+              <Select
+                value={batchStatus}
+                onChange={(event) => setBatchStatus(event.target.value as ApplicationStatus)}
+                className="w-32"
+                aria-label={t.batchStatus}
+              >
+                {APPLICATION_STATUSES.map((status) => (<option key={status} value={status}>{statuses[status]}</option>))}
+              </Select>
+              <Button variant="secondary" onClick={handleBatchStatusUpdate}>{t.applyBatchStatus}</Button>
+              <Button variant="secondary" onClick={handleBatchDelete}>{t.batchDelete}</Button>
+              <button type="button" onClick={() => setSelectedJobIds([])} className="text-[12px] text-secondary/50 hover:text-secondary ml-1">✕</button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={handleExportCsv}>{t.exportCsv}</Button>
+            </div>
+          )}
         </div>
+      )}
 
-        {showAdvancedFilters ? (
-          <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid flex-1 gap-3 md:grid-cols-[180px_190px_210px_210px_210px]">
-              <label className="space-y-1.5">
-                <span className="text-sm font-semibold text-ink">
-                  {t.jobType}
-                </span>
+      {/* ─── Sticky filter toolbar ─── */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6">
+        <div className="rounded-xl border border-black/[0.06] bg-white/80 p-4 shadow-sm backdrop-blur-xl">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="min-w-0 flex-1 space-y-1.5">
+              <span className="text-xs font-medium text-secondary">{t.search}</span>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t.searchPlaceholder}
+              />
+            </label>
+
+            <label className="w-36 space-y-1.5">
+              <span className="text-xs font-medium text-secondary">{t.status}</span>
+              <Select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as ApplicationStatus | "all")
+                }
+                className="w-full"
+              >
+                <option value="all">{t.allStatuses}</option>
+                {APPLICATION_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {statuses[status]}
+                  </option>
+                ))}
+              </Select>
+            </label>
+
+            <label className="w-36 space-y-1.5">
+              <span className="text-xs font-medium text-secondary">{t.matchFilter}</span>
+              <Select
+                value={matchFilter}
+                onChange={(event) => setMatchFilter(event.target.value as MatchFilter)}
+                className="w-full"
+              >
+                <option value="all">{t.allMatches}</option>
+                <option value="high">{t.highMatch}</option>
+                <option value="medium">{t.mediumMatch}</option>
+                <option value="low">{t.lowMatch}</option>
+              </Select>
+            </label>
+
+            <label className="w-36 space-y-1.5">
+              <span className="text-xs font-medium text-secondary">{t.deadlineFilter}</span>
+              <Select
+                value={deadlineFilter}
+                onChange={(event) => setDeadlineFilter(event.target.value as DeadlineFilter)}
+                className="w-full"
+              >
+                <option value="all">{t.allDeadlines}</option>
+                <option value="overdue">{t.overdue}</option>
+                <option value="next7">{t.dueNext7}</option>
+                <option value="next30">{t.dueNext30}</option>
+                <option value="none">{t.noDeadline}</option>
+              </Select>
+            </label>
+
+            <Button
+              variant="ghost"
+              onClick={() => setShowAdvancedFilters((cur) => !cur)}
+            >
+              {t.moreFilters}
+            </Button>
+          </div>
+
+          {showAdvancedFilters ? (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-black/[0.06] pt-4">
+              <label className="w-40 space-y-1.5">
+                <span className="text-xs font-medium text-secondary">{t.jobType}</span>
                 <Select
                   value={jobTypeFilter}
                   onChange={(event) => setJobTypeFilter(event.target.value)}
                   className="w-full"
                 >
                   <option value="all">{t.allJobTypes}</option>
-                  {jobTypes.map((jobType) => (
-                    <option key={jobType} value={jobType}>
-                      {jobType}
-                    </option>
+                  {jobTypes.map((jt) => (
+                    <option key={jt} value={jt}>{jt}</option>
                   ))}
                 </Select>
               </label>
-              <label className="space-y-1.5">
-                <span className="text-sm font-semibold text-ink">
-                  {t.dateAdded}
-                </span>
+
+              <label className="w-44 space-y-1.5">
+                <span className="text-xs font-medium text-secondary">{t.dateAdded}</span>
                 <Select
                   value={sortMode}
                   onChange={(event) => setSortMode(event.target.value as SortMode)}
@@ -450,42 +479,31 @@ export default function JobListPage() {
                   <option value="created-asc">{t.createdOldest}</option>
                 </Select>
               </label>
-              <ToggleFilter
-                checked={highMatchOnly}
-                onChange={setHighMatchOnly}
-                label={t.highMatchOnly}
-              />
-              <ToggleFilter
-                checked={needsActionOnly}
-                onChange={setNeedsActionOnly}
-                label={t.needsActionOnly}
-              />
-              <ToggleFilter
-                checked={deadlineApproachingOnly}
-                onChange={setDeadlineApproachingOnly}
-                label={t.deadlineApproachingOnly}
-              />
-            </div>
-            <Button variant="ghost" onClick={resetFilters}>
-              {t.resetFilters}
-            </Button>
-          </div>
-        ) : null}
-      </section>
 
-      <section className="overflow-hidden rounded-panel border border-line bg-white shadow-panel">
-        {!isLoaded ? (
-          <div className="p-8 text-sm text-muted">{t.analyzing}</div>
-        ) : jobs.length === 0 ? (
-          <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-panel border border-line bg-surface-muted text-sm font-bold text-accent">
+              <ToggleFilter checked={highMatchOnly} onChange={setHighMatchOnly} label={t.highMatchOnly} />
+              <ToggleFilter checked={needsActionOnly} onChange={setNeedsActionOnly} label={t.needsActionOnly} />
+              <ToggleFilter checked={deadlineApproachingOnly} onChange={setDeadlineApproachingOnly} label={t.deadlineApproachingOnly} />
+
+              <Button variant="ghost" onClick={resetFilters}>
+                {t.resetFilters}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ─── Table ─── */}
+      <section className="-mx-4 overflow-hidden rounded-xl border border-black/[0.06] bg-tertiary shadow-sm sm:-mx-6 sm:mx-0">
+        {jobs.length === 0 ? (
+          <div className="flex min-h-72 flex-col items-center justify-center px-6 py-16 text-center">
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl border bg-hover text-lg font-bold text-accent shadow-sm">
               AI
             </div>
-            <h2 className="text-xl font-semibold text-ink">{t.emptyTitle}</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted">
+            <h2 className="text-xl font-semibold text-primary">{t.emptyTitle}</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-secondary">
               {t.emptyBody}
             </p>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="/add" onClick={handleAnalyzeJdClick}>
                 {t.emptyAction}
               </ButtonLink>
@@ -496,45 +514,26 @@ export default function JobListPage() {
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 border-b border-line bg-surface-muted px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-muted">
-                {selectedJobIds.length} {t.selectedJobs}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Select
-                  value={batchStatus}
-                  onChange={(event) =>
-                    setBatchStatus(event.target.value as ApplicationStatus)
-                  }
-                  className="w-full sm:w-44"
-                  aria-label={t.batchStatus}
-                >
-                  {APPLICATION_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {statuses[status]}
-                    </option>
-                  ))}
-                </Select>
-                <Button
-                  variant="secondary"
-                  onClick={handleBatchStatusUpdate}
-                  disabled={selectedJobIds.length === 0}
-                >
-                  {t.applyBatchStatus}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={handleBatchDelete}
-                  disabled={selectedJobIds.length === 0}
-                >
-                  {t.batchDelete}
-                </Button>
-              </div>
+            {/* Batch bar */}
+            <div className="flex items-center gap-3 border-b border-black/[0.06] bg-hover/50 px-5 py-2.5">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={(event) => handleToggleAllVisible(event.target.checked)}
+                aria-label={t.selectedJobs}
+                className="h-4 w-4 rounded border accent-[#0066CC]"
+              />
+              <span className="text-xs font-medium text-secondary">
+                {selectedJobIds.length > 0
+                  ? `${selectedJobIds.length} ${t.selectedJobs.toLowerCase()}`
+                  : t.clickRowsHint}
+              </span>
             </div>
 
-            <div className="grid gap-3 p-3 md:hidden">
+            {/* Mobile cards */}
+            <div className="grid gap-3 p-4 md:hidden">
               {filteredJobs.length === 0 ? (
-                <div className="rounded-panel border border-line bg-surface-muted px-4 py-8 text-center text-sm text-muted">
+                <div className="rounded-lg border border-black/[0.05] bg-hover px-4 py-8 text-center text-sm text-secondary">
                   {t.noMatches}
                 </div>
               ) : (
@@ -544,9 +543,7 @@ export default function JobListPage() {
                     job={job}
                     locale={locale}
                     checked={selectedJobIds.includes(job.id)}
-                    onCheckedChange={(checked) =>
-                      handleToggleJob(job.id, checked)
-                    }
+                    onCheckedChange={(checked) => handleToggleJob(job.id, checked)}
                     onOpen={() => handleOpenJobDetail(job)}
                     labels={{
                       matchScore: t.matchScore,
@@ -557,125 +554,71 @@ export default function JobListPage() {
                       noDeadline: t.noDeadline
                     }}
                     statusLabel={statuses[job.application_status]}
-                    recommendationLabel={
-                      recommendations[job.application_recommendation]
-                    }
-                    nextActionLabel={
-                      nextActions[job.recommended_next_action.action]
-                    }
+                    recommendationLabel={recommendations[job.application_recommendation]}
+                    recommendation={job.application_recommendation}
+                    nextActionLabel={nextActions[job.recommended_next_action.action]}
                   />
                 ))
               )}
             </div>
 
+            {/* Desktop table */}
             <div className="hidden overflow-x-auto md:block">
-            <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
-              <thead className="border-b border-line bg-surface-muted text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="w-10 px-4 py-3.5 font-semibold">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      onChange={(event) =>
-                        handleToggleAllVisible(event.target.checked)
-                      }
-                      aria-label={t.selectedJobs}
-                      className="h-4 w-4 rounded border-line accent-teal-700"
-                    />
-                  </th>
-                  <th className="px-4 py-3.5 font-semibold">{t.roleCompany}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.recommendation}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.status}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.matchScore}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.location}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.deadline}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.nextAction}</th>
-                  <th className="px-4 py-3.5 font-semibold">{t.createdDate}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-muted">
-                      {t.noMatches}
-                    </td>
+              <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-black/[0.04] bg-[#FAFAFA] text-[11px] font-medium uppercase tracking-wider text-secondary/50">
+                    <th className="w-10 px-5 py-3"> </th>
+                    <th className="px-4 py-3">{t.roleCompany}</th>
+                    <th className="px-4 py-3">{t.matchScore}</th>
+                    <th className="px-4 py-3">{t.recommendation}</th>
+                    <th className="px-4 py-3">{t.status}</th>
+                    <th className="px-4 py-3">{t.nextAction}</th>
                   </tr>
-                ) : (
-                  filteredJobs.map((job) => (
-                    <tr
-                      key={job.id}
-                      onClick={() => handleOpenJobDetail(job)}
-                      className="group cursor-pointer border-b border-line transition duration-200 last:border-b-0 hover:bg-surface-muted"
-                    >
-                      <td
-                        className="px-4 py-3"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedJobIds.includes(job.id)}
-                          onChange={(event) =>
-                            handleToggleJob(job.id, event.target.checked)
-                          }
-                          aria-label={`${t.company}: ${job.company}`}
-                          className="h-4 w-4 rounded border-line accent-teal-700"
-                        />
-                      </td>
-                      <td className="max-w-80 px-4 py-4 text-ink">
-                        <div className="flex items-center gap-3">
-                          <CompanyLogo company={job.company} />
-                          <div className="min-w-0">
-                            <span className="line-clamp-2 font-semibold group-hover:text-accent">
-                              {language === "zh" && job.job_title_zh
-                                ? job.job_title_zh
-                                : job.job_title_original}
-                            </span>
-                            <span className="mt-1 block truncate text-xs font-medium text-muted">
-                              {job.company} ·{" "}
-                              {language === "zh" ? job.job_type_zh : job.job_type_en}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="inline-flex rounded-full border border-line bg-surface-muted px-2.5 py-1 text-xs font-semibold text-muted">
-                          {recommendations[job.application_recommendation]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
-                        <StatusSelect
-                          value={job.application_status}
-                          onChange={(status) => handleStatusChange(job.id, status)}
-                          compact
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <MatchScoreCell score={job.match_score} />
-                      </td>
-                      <td className="max-w-44 px-4 py-4 text-muted">
-                        <span className="line-clamp-2">{job.location}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-muted">
-                        {formatOptionalDate(
-                          job.application_deadline,
-                          locale,
-                          t.noDeadline
-                        )}
-                      </td>
-                      <td className="max-w-44 px-4 py-4 text-muted">
-                        <span className="line-clamp-2">
-                          {nextActions[job.recommended_next_action.action]}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-muted">
-                        {formatDate(job.created_at, locale)}
+                </thead>
+                <tbody>
+                  {filteredJobs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-[13px] text-secondary">
+                        {t.noMatches}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    filteredJobs.map((job) => (
+                      <tr
+                        key={job.id}
+                        onClick={() => handleOpenJobDetail(job)}
+                        className="group cursor-pointer border-b border-black/[0.02] transition-colors last:border-b-0 hover:bg-accent-subtle/20"
+                      >
+                        <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
+                          <input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={(event) => handleToggleJob(job.id, event.target.checked)} aria-label={`${t.company}: ${job.company}`} className="h-4 w-4 rounded border accent-[#0066CC]" />
+                        </td>
+                        <td className="max-w-72 px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <CompanyLogo company={job.company} />
+                            <div className="min-w-0">
+                              <span className="line-clamp-1 text-[13px] font-semibold text-primary group-hover:text-accent">
+                                {language === "zh" && job.job_title_zh ? job.job_title_zh : job.job_title_en && job.job_title_en !== "Not specified" ? job.job_title_en : job.job_title_original}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[12px] text-secondary">{job.company}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5"><MatchScoreCell score={job.match_score} recommendation={job.application_recommendation} /></td>
+                        <td className="px-4 py-3.5">
+                          <RecommendationBadge recommendation={job.application_recommendation} label={recommendations[job.application_recommendation]} />
+                        </td>
+                        <td className="px-4 py-3.5" onClick={(event) => event.stopPropagation()}>
+                          <StatusSelect value={job.application_status} onChange={(status) => handleStatusChange(job.id, status)} compact />
+                        </td>
+                        <td className="max-w-56 px-4 py-3.5">
+                          <span className="text-[12px] font-medium text-accent">{nextActions[job.recommended_next_action.action]}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </section>
@@ -683,254 +626,72 @@ export default function JobListPage() {
   );
 }
 
-function HeroAnalysisPreview({
-  jobDescriptionLabel,
-  matchScoreLabel,
-  greatFitLabel,
-  skillLabels
-}: {
-  jobDescriptionLabel: string;
-  matchScoreLabel: string;
-  greatFitLabel: string;
-  skillLabels: string[];
-}) {
-  return (
-    <div className="relative hidden min-h-52 lg:block" aria-hidden="true">
-      <div className="absolute left-0 top-3 w-72 rounded-panel border border-line bg-white p-4 shadow-soft">
-        <p className="text-xs font-semibold text-ink">{jobDescriptionLabel}</p>
-        <div className="mt-4 space-y-2">
-          <span className="block h-2 rounded-full bg-line" />
-          <span className="block h-2 w-4/5 rounded-full bg-line" />
-          <span className="block h-2 w-2/3 rounded-full bg-line" />
-          <span className="mt-4 block h-2 w-11/12 rounded-full bg-line" />
-          <span className="block h-2 w-3/5 rounded-full bg-line" />
-          <span className="mt-4 block h-2 w-10/12 rounded-full bg-line" />
-          <span className="block h-2 w-7/12 rounded-full bg-line" />
-        </div>
-      </div>
-      <div className="absolute right-2 top-14 w-40 rounded-panel border border-line bg-white p-3 shadow-panel">
-        <p className="text-xs font-semibold text-ink">{matchScoreLabel}</p>
-        <p className="mt-2 text-3xl font-semibold tracking-normal text-ink">
-          92%
-        </p>
-        <p className="mt-1 text-xs font-semibold text-accent">{greatFitLabel}</p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted">
-          <span className="block h-full w-[92%] rounded-full bg-accent" />
-        </div>
-      </div>
-      <div className="absolute bottom-3 left-4 flex flex-wrap gap-2">
-        {skillLabels.map((label) => (
-          <span
-            key={label}
-            className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-soft"
-          >
-            <span className="h-2 w-2 rounded-full bg-accent" />
-            {label}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
+/* ──────────── Sub-components ──────────── */
 
-function DashboardSnapshot({
-  analytics,
-  hasJobs,
-  labels,
-  onTryDemo
-}: {
-  analytics: TrackerAnalytics;
-  hasJobs: boolean;
-  labels: {
-    dashboard: string;
-    snapshot: string;
-    viewFullDashboard: string;
-    applications: string;
-    averageMatchScore: string;
-    interviews: string;
-    offers: string;
-    matchScoreDistribution: string;
-    empty: string;
-    tryDemo: string;
-  };
-  onTryDemo: () => void;
-}) {
-  return (
-    <aside className="rounded-panel border border-line bg-white p-4 shadow-panel">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-lg font-semibold text-ink">{labels.dashboard}</h2>
-          <span className="text-xs font-medium text-muted">
-            ({labels.snapshot})
-          </span>
-        </div>
-        <Link
-          href="/dashboard"
-          className="text-xs font-semibold text-muted transition duration-200 hover:text-accent"
-        >
-          {labels.viewFullDashboard}
-        </Link>
-      </div>
-
-      {!hasJobs ? (
-        <div className="mt-5 rounded-panel border border-line bg-surface-muted p-4">
-          <p className="text-sm leading-6 text-muted">{labels.empty}</p>
-          <Button className="mt-4" variant="secondary" onClick={onTryDemo}>
-            {labels.tryDemo}
-          </Button>
-        </div>
-      ) : (
-        <>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <SnapshotMetric label={labels.applications} value={analytics.totalJobs} />
-            <SnapshotMetric
-              label={labels.averageMatchScore}
-              value={`${analytics.averageMatchScore}%`}
-            />
-            <SnapshotMetric
-              label={labels.interviews}
-              value={analytics.interviewCount}
-            />
-            <SnapshotMetric label={labels.offers} value={analytics.offerCount} />
-          </div>
-          <div className="mt-5">
-            <h3 className="text-sm font-semibold text-ink">
-              {labels.matchScoreDistribution}
-            </h3>
-            <div className="mt-3 space-y-3">
-              {analytics.distribution.map((bucket) => (
-                <div key={bucket.label} className="grid grid-cols-[58px_1fr_48px] items-center gap-3 text-xs">
-                  <span className="font-medium text-muted">{bucket.label}</span>
-                  <span className="h-2 overflow-hidden rounded-full bg-surface-muted">
-                    <span
-                      className="block h-full rounded-full bg-accent"
-                      style={{ width: `${Math.max(8, bucket.percent)}%` }}
-                    />
-                  </span>
-                  <span className="text-right font-medium text-muted">
-                    {bucket.count} ({bucket.percent}%)
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </aside>
-  );
-}
-
-function SnapshotMetric({
-  label,
-  value
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-panel border border-line bg-white p-3 shadow-soft">
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-normal text-ink">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function MatchScoreCell({ score }: { score: number }) {
+function MatchScoreCell({ score, recommendation }: { score: number; recommendation: string }) {
   const tone =
-    score >= 80 ? "bg-accent" : score >= 60 ? "bg-amber-500" : "bg-red-500";
+    recommendation.includes("Strongly") || recommendation.includes("强烈") ? "bg-score-high"
+    : recommendation.includes("Worth") || recommendation.includes("值得") ? "bg-accent"
+    : recommendation.includes("Low") || recommendation.includes("低") ? "bg-score-mid"
+    : "bg-score-low";
 
   return (
     <span className="inline-flex items-center gap-2">
       <span className={`h-2 w-2 rounded-full ${tone}`} aria-hidden="true" />
-      <ScoreBadge score={score} />
+      <ScoreBadge score={score} recommendation={recommendation} />
     </span>
   );
 }
 
+
 function MobileJobCard({
-  job,
-  locale,
-  checked,
-  onCheckedChange,
-  onOpen,
-  labels,
-  statusLabel,
-  recommendationLabel,
-  nextActionLabel
+  job, locale, checked, onCheckedChange, onOpen,
+  labels, statusLabel, recommendationLabel, recommendation, nextActionLabel
 }: {
-  job: JobRecord;
-  locale: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  onOpen: () => void;
-  labels: {
-    matchScore: string;
-    recommendation: string;
-    status: string;
-    deadline: string;
-    nextAction: string;
-    noDeadline: string;
-  };
-  statusLabel: string;
-  recommendationLabel: string;
-  nextActionLabel: string;
+  job: JobRecord; locale: string; checked: boolean;
+  onCheckedChange: (checked: boolean) => void; onOpen: () => void;
+  labels: { matchScore: string; recommendation: string; status: string;
+    deadline: string; nextAction: string; noDeadline: string; };
+  statusLabel: string; recommendationLabel: string; recommendation: string; nextActionLabel: string;
 }) {
   const isChinese = locale.toLowerCase().startsWith("zh");
-  const title =
-    isChinese && job.job_title_zh ? job.job_title_zh : job.job_title_original;
+  const title = isChinese && job.job_title_zh ? job.job_title_zh : job.job_title_en && job.job_title_en !== "Not specified" ? job.job_title_en : job.job_title_original;
 
   return (
-    <article className="rounded-panel border border-line bg-white shadow-soft transition duration-200 hover:border-accent hover:shadow-panel">
-      <div className="flex items-start gap-3 p-4">
+    <article className="rounded-xl border border-black/[0.06] bg-tertiary p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start gap-3">
         <input
           type="checkbox"
           checked={checked}
           onChange={(event) => onCheckedChange(event.target.checked)}
           aria-label={`${job.company} ${job.job_title_original}`}
-          className="mt-1 h-5 w-5 rounded border-line accent-teal-700"
+          className="mt-1 h-5 w-5 rounded border accent-[#0066CC]"
         />
-        <button
-          type="button"
-          onClick={onOpen}
-          className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-accent-soft"
-        >
+        <button type="button" onClick={onOpen}
+          className="flex min-w-0 flex-1 items-start gap-3 text-left focus:outline-none">
           <CompanyLogo company={job.company} size="sm" />
           <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="line-clamp-2 text-base font-semibold leading-6 text-ink">
-                {title}
-              </h2>
-              <p className="mt-1 truncate text-sm font-medium text-muted">
-                {job.company}
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="line-clamp-2 text-[15px] font-semibold leading-snug text-primary">
+                  {title}
+                </h2>
+                <p className="mt-1 truncate text-[13px] text-secondary">{job.company}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-secondary">
+                  {labels.matchScore}
+                </p>
+                <ScoreBadge score={job.match_score} recommendation={recommendation} />
+              </div>
             </div>
-            <div className="shrink-0 text-right">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-                {labels.matchScore}
-              </p>
-              <ScoreBadge score={job.match_score} />
-            </div>
-          </div>
-
-          <dl className="mt-4 grid gap-3 border-t border-line pt-4 text-sm">
-            <MobileMetaItem
-              label={labels.recommendation}
-              value={recommendationLabel}
-            />
-            <MobileMetaItem label={labels.status} value={statusLabel} />
-            <MobileMetaItem
-              label={labels.deadline}
-              value={formatOptionalDate(
-                job.application_deadline,
-                locale,
-                labels.noDeadline
-              )}
-            />
-            <MobileMetaItem label={labels.nextAction} value={nextActionLabel} />
-          </dl>
+            <dl className="mt-4 grid gap-2.5 border-t border-black/[0.05] pt-4 text-sm">
+              <MobileMetaItem label={labels.recommendation} value={recommendationLabel} />
+              <MobileMetaItem label={labels.status} value={statusLabel} />
+              <MobileMetaItem label={labels.deadline}
+                value={formatOptionalDate(job.application_deadline, locale, labels.noDeadline)} />
+              <MobileMetaItem label={labels.nextAction} value={nextActionLabel} />
+            </dl>
           </div>
         </button>
       </div>
@@ -941,261 +702,158 @@ function MobileJobCard({
 function MobileMetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[112px_1fr] gap-3">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
-        {label}
-      </dt>
-      <dd className="break-words font-medium text-ink">{value}</dd>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-secondary">{label}</dt>
+      <dd className="break-words text-[13px] font-medium text-primary">{value}</dd>
     </div>
   );
 }
 
-function ToggleFilter({
-  checked,
-  onChange,
-  label
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
+function ToggleFilter({ checked, onChange, label }: {
+  checked: boolean; onChange: (c: boolean) => void; label: string;
 }) {
   return (
-    <label className="inline-flex min-h-10 items-center gap-2 rounded-app border border-line bg-white px-3 py-2 text-sm font-semibold text-ink shadow-soft transition duration-200 hover:border-line-strong hover:bg-surface-muted">
+    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border bg-tertiary px-3 py-2 text-[13px] font-medium text-primary transition-colors hover:border-strong hover:bg-hover">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 rounded border-line accent-teal-700"
+        className="h-4 w-4 rounded border accent-[#0066CC]"
       />
       {label}
     </label>
   );
 }
 
+/* ──────────── Analytics & helpers ──────────── */
+
 function compareJobs(a: JobRecord, b: JobRecord, sortMode: SortMode) {
   switch (sortMode) {
-    case "score-asc":
-      return a.match_score - b.match_score;
-    case "deadline-asc":
-      return compareOptionalDates(a.application_deadline, b.application_deadline);
-    case "deadline-desc":
-      return compareOptionalDates(b.application_deadline, a.application_deadline);
-    case "created-desc":
-      return getDateTime(b.created_at) - getDateTime(a.created_at);
-    case "created-asc":
-      return getDateTime(a.created_at) - getDateTime(b.created_at);
+    case "score-asc": return a.match_score - b.match_score;
+    case "deadline-asc": return compareOptionalDates(a.application_deadline, b.application_deadline);
+    case "deadline-desc": return compareOptionalDates(b.application_deadline, a.application_deadline);
+    case "created-desc": return getDateTime(b.created_at) - getDateTime(a.created_at);
+    case "created-asc": return getDateTime(a.created_at) - getDateTime(b.created_at);
     case "score-desc":
-    default:
-      return b.match_score - a.match_score;
+    default: return b.match_score - a.match_score;
   }
 }
 
-function matchesDeadlineFilter(
-  deadline: string | undefined,
-  filter: DeadlineFilter,
-  todayStart: number
-) {
-  const deadlineTime = getDateOnlyTime(deadline);
-
-  if (filter === "all") {
-    return true;
-  }
-
-  if (filter === "none") {
-    return deadlineTime === null;
-  }
-
-  if (deadlineTime === null) {
-    return false;
-  }
-
-  if (filter === "overdue") {
-    return deadlineTime < todayStart;
-  }
-
-  const endTime =
-    filter === "next7" ? addDays(todayStart, 7) : addDays(todayStart, 30);
-
-  return deadlineTime >= todayStart && deadlineTime <= endTime;
+function matchesDeadlineFilter(deadline: string | undefined, filter: DeadlineFilter, todayStart: number) {
+  const dl = getDateOnlyTime(deadline);
+  if (filter === "all") return true;
+  if (filter === "none") return dl === null;
+  if (dl === null) return false;
+  if (filter === "overdue") return dl < todayStart;
+  const end = filter === "next7" ? addDays(todayStart, 7) : addDays(todayStart, 30);
+  return dl >= todayStart && dl <= end;
 }
 
 function jobNeedsAction(job: JobRecord) {
-  if (job.application_status === "Rejected" || job.application_status === "Offer") {
-    return false;
-  }
-
+  if (job.application_status === "Rejected" || job.application_status === "Offer") return false;
   return ["Apply now", "Tailor resume first", "Improve skills before applying"].includes(
-    job.recommended_next_action.action
-  );
+    job.recommended_next_action.action);
 }
 
 function deadlineIsApproaching(deadline: string | undefined, todayStart: number) {
-  const deadlineTime = getDateOnlyTime(deadline);
-
-  if (deadlineTime === null) {
-    return false;
-  }
-
-  return deadlineTime >= todayStart && deadlineTime <= addDays(todayStart, 7);
+  const dl = getDateOnlyTime(deadline);
+  if (dl === null) return false;
+  return dl >= todayStart && dl <= addDays(todayStart, 7);
 }
 
 function matchesMatchFilter(score: number, filter: MatchFilter) {
-  if (filter === "all") {
-    return true;
-  }
-
-  if (filter === "high") {
-    return score >= 80;
-  }
-
-  if (filter === "medium") {
-    return score >= 60 && score < 80;
-  }
-
+  if (filter === "all") return true;
+  if (filter === "high") return score >= 80;
+  if (filter === "medium") return score >= 60 && score < 80;
   return score < 60;
 }
 
 function buildTrackerAnalytics(jobs: JobRecord[]): TrackerAnalytics {
   const totalJobs = jobs.length;
-  const averageMatchScore = totalJobs
-    ? Math.round(jobs.reduce((sum, job) => sum + job.match_score, 0) / totalJobs)
-    : 0;
+  const avg = totalJobs ? Math.round(jobs.reduce((s, j) => s + j.match_score, 0) / totalJobs) : 0;
   const buckets = [
     { label: "90-100%", min: 90, max: 100 },
     { label: "70-89%", min: 70, max: 89 },
     { label: "50-69%", min: 50, max: 69 },
     { label: "0-49%", min: 0, max: 49 }
   ];
-
   return {
     totalJobs,
-    averageMatchScore,
-    interviewCount: jobs.filter((job) => job.application_status === "Interview").length,
-    offerCount: jobs.filter((job) => job.application_status === "Offer").length,
-    distribution: buckets.map((bucket) => {
-      const count = jobs.filter(
-        (job) => job.match_score >= bucket.min && job.match_score <= bucket.max
-      ).length;
-
-      return {
-        label: bucket.label,
-        count,
-        percent: totalJobs ? Math.round((count / totalJobs) * 100) : 0
-      };
+    averageMatchScore: avg,
+    interviewCount: jobs.filter((j) => j.application_status === "Interview").length,
+    offerCount: jobs.filter((j) => j.application_status === "Offer").length,
+    distribution: buckets.map((b) => {
+      const count = jobs.filter((j) => j.match_score >= b.min && j.match_score <= b.max).length;
+      return { label: b.label, count, percent: totalJobs ? Math.round((count / totalJobs) * 100) : 0 };
     })
   };
 }
 
-function compareOptionalDates(
-  leftDate: string | undefined,
-  rightDate: string | undefined
-) {
-  const leftTime = getDateOnlyTime(leftDate);
-  const rightTime = getDateOnlyTime(rightDate);
-
-  if (leftTime === null && rightTime === null) {
-    return 0;
-  }
-
-  if (leftTime === null) {
-    return 1;
-  }
-
-  if (rightTime === null) {
-    return -1;
-  }
-
-  return leftTime - rightTime;
+function compareOptionalDates(a: string | undefined, b: string | undefined) {
+  const ta = getDateOnlyTime(a), tb = getDateOnlyTime(b);
+  if (ta === null && tb === null) return 0;
+  if (ta === null) return 1;
+  if (tb === null) return -1;
+  return ta - tb;
 }
 
-function formatOptionalDate(
-  value: string | undefined,
-  locale: string,
-  fallback: string
-) {
-  const dateTime = getDateOnlyTime(value);
-
-  if (dateTime === null) {
-    return fallback;
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  }).format(new Date(dateTime));
+function formatOptionalDate(v: string | undefined, locale: string, fallback: string) {
+  const t = getDateOnlyTime(v);
+  if (t === null) return fallback;
+  return new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(new Date(t));
 }
 
-function getDateOnlyTime(value: string | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(`${value}T00:00:00`);
-  const time = date.getTime();
-
-  return Number.isNaN(time) ? null : time;
+function getDateOnlyTime(v: string | undefined) {
+  if (!v) return null;
+  const d = new Date(`${v}T00:00:00`).getTime();
+  return Number.isNaN(d) ? null : d;
 }
 
-function getDateTime(value: string) {
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? 0 : time;
+function getDateTime(v: string) {
+  const t = new Date(v).getTime();
+  return Number.isNaN(t) ? 0 : t;
 }
 
 function getTodayStartTime() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
 }
 
-function addDays(value: number, days: number) {
-  return value + days * 24 * 60 * 60 * 1000;
-}
+function addDays(v: number, d: number) { return v + d * MS_PER_DAY; }
 
 function exportJobsToCsv(jobs: JobRecord[]) {
-  const rows = jobs.map((job) => [
-    job.company,
-    job.job_title_original,
-    job.location,
-    job.job_type_en,
-    job.match_score,
-    job.application_status,
-    job.application_recommendation,
-    job.application_deadline || "",
-    job.source_url,
-    job.created_at,
-    job.skills.join("; "),
-    job.missing_skills.join("; ")
+  const rows = jobs.map((j) => [
+    j.company, j.job_title_original, j.location, j.job_type_en,
+    j.match_score, j.application_status, j.application_recommendation,
+    j.application_deadline || "", j.source_url, j.created_at,
+    j.skills.join("; "), j.missing_skills.join("; ")
   ]);
-  const header = [
-    "company",
-    "job title",
-    "location",
-    "job type",
-    "match score",
-    "status",
-    "recommendation",
-    "deadline",
-    "source URL",
-    "created date",
-    "key skills",
-    "missing skills"
-  ];
-  const csv = [header, ...rows]
-    .map((row) => row.map(escapeCsvValue).join(","))
-    .join("\n");
-  const blob = new Blob([`\uFEFF${csv}`], {
-    type: "text/csv;charset=utf-8"
-  });
+  const header = ["company","job title","location","job type","match score","status",
+    "recommendation","deadline","source URL","created date","key skills","missing skills"];
+  const csv = [header, ...rows].map((r) => r.map(escapeCsvValue).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = `job-tracker-export-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  document.body.appendChild(link); link.click(); link.remove();
   URL.revokeObjectURL(url);
 }
 
-function escapeCsvValue(value: string | number) {
-  const text = String(value ?? "");
-  return `"${text.replace(/"/g, '""')}"`;
+function escapeCsvValue(v: string | number) {
+  return `"${String(v ?? "").replace(/"/g, '""')}"`;
+}
+
+function RecommendationBadge({ recommendation, label }: { recommendation: string; label: string }) {
+  const tone = recommendation.includes("Strongly") || recommendation.includes("强烈")
+    ? "border-green-200 bg-green-50/70 text-green-700"
+    : recommendation.includes("Worth") || recommendation.includes("值得")
+    ? "border-accent/15 bg-accent-subtle/40 text-accent"
+    : recommendation.includes("Low") || recommendation.includes("低")
+    ? "border-amber-200 bg-amber-50/60 text-amber-700"
+    : "border-red-100 bg-red-50/50 text-red-600";
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${tone}`}>
+      {label}
+    </span>
+  );
 }

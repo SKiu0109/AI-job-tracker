@@ -24,6 +24,7 @@ type EditFormState = {
   company: string;
   job_title_original: string;
   job_title_zh: string;
+  job_title_en: string;
   location: string;
   work_mode: WorkMode;
   job_type_en: string;
@@ -43,6 +44,7 @@ const EMPTY_FORM: EditFormState = {
   company: "",
   job_title_original: "",
   job_title_zh: "",
+  job_title_en: "",
   location: "",
   work_mode: "Not specified",
   job_type_en: "",
@@ -97,6 +99,7 @@ export default function EditJobPage() {
         company: form.company,
         job_title_original: form.job_title_original,
         job_title_zh: form.job_title_zh,
+        job_title_en: form.job_title_en,
         location: form.location,
         work_mode: form.work_mode,
         job_type_en: form.job_type_en,
@@ -131,7 +134,7 @@ export default function EditJobPage() {
 
   if (!isLoaded) {
     return (
-      <div className="rounded-panel border border-line bg-white p-6 shadow-soft">
+      <div className="rounded-panel border border bg-tertiary p-6 ">
         {t.analyzing}
       </div>
     );
@@ -139,9 +142,9 @@ export default function EditJobPage() {
 
   if (!job) {
     return (
-      <div className="rounded-panel border border-line bg-white p-8 text-center shadow-panel">
-        <h1 className="text-xl font-semibold text-ink">{t.notFound}</h1>
-        <p className="mt-2 text-sm text-muted">{t.notFoundBody}</p>
+      <div className="rounded-panel border border bg-tertiary p-8 text-center ">
+        <h1 className="text-xl font-semibold text-primary">{t.notFound}</h1>
+        <p className="mt-2 text-sm text-secondary">{t.notFoundBody}</p>
         <ButtonLink href="/workspace" className="mt-5">
           {t.backToList}
         </ButtonLink>
@@ -160,9 +163,9 @@ export default function EditJobPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">{t.editJob}</h1>
-          <p className="mt-1 text-sm text-muted">
-            {language === "zh" ? job.job_title_zh : job.job_title_original}
+          <h1 className="text-2xl font-semibold text-primary">{t.editJob}</h1>
+          <p className="mt-1 text-sm text-secondary">
+            {language === "zh" ? job.job_title_zh : job.job_title_en || job.job_title_original}
           </p>
         </div>
         <Button variant="secondary" onClick={handleDelete}>
@@ -172,7 +175,7 @@ export default function EditJobPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-panel border border-line bg-white p-4 shadow-soft sm:p-5"
+        className="space-y-5 rounded-panel border border bg-tertiary p-4  sm:p-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t.company}>
@@ -189,7 +192,7 @@ export default function EditJobPage() {
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Field label={t.originalJobTitle}>
             <Input
               value={form.job_title_original}
@@ -198,10 +201,16 @@ export default function EditJobPage() {
               }
             />
           </Field>
-          <Field label={t.jobTypeZh}>
+          <Field label={t.chineseJobTitle}>
             <Input
               value={form.job_title_zh}
               onChange={(event) => updateField("job_title_zh", event.target.value)}
+            />
+          </Field>
+          <Field label={t.englishJobTitle}>
+            <Input
+              value={form.job_title_en}
+              onChange={(event) => updateField("job_title_en", event.target.value)}
             />
           </Field>
         </div>
@@ -350,6 +359,7 @@ function createFormState(job: JobRecord): EditFormState {
     company: job.company,
     job_title_original: job.job_title_original,
     job_title_zh: job.job_title_zh,
+    job_title_en: job.job_title_en || "",
     location: job.location,
     work_mode: job.work_mode,
     job_type_en: job.job_type_en,

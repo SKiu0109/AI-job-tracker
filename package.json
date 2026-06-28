@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "contributors": [
+    "SKiu0109",
+    "OpenAI Codex"
+  ],
   "scripts": {
     "dev": "next dev",
     "dev:local": "next dev --hostname 127.0.0.1 --port 3000",
@@ -26,7 +30,7 @@
     "autoprefixer": "^10.4.21",
     "eslint": "^9.23.0",
     "eslint-config-next": "16.2.9",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.15",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2"
   }
