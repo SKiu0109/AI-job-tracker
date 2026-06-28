@@ -8,8 +8,15 @@ import { CompanyLogo } from "@/components/jobs/company-logo";
 import { Input, Select } from "@/components/ui/form-controls";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { StatusSelect } from "@/components/jobs/status-select";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { trackProductEvent } from "@/lib/product/analytics";
 import { MS_PER_DAY } from "@/lib/constants";
+import {
+  deleteCloudJobs,
+  hydrateJobsFromCloud,
+  upsertCloudJobs
+} from "@/lib/storage/cloud-sync";
 import { loadJobs, saveJobs, updateStoredJobStatus } from "@/lib/storage/jobs";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
 import { useDragOrder } from "@/hooks/use-drag-order";
@@ -43,6 +50,7 @@ type TrackerAnalytics = {
 
 export default function JobListPage() {
   const router = useRouter();
+  const { session } = useAuth();
   const { language, t, statuses, recommendations, nextActions } = useLanguage();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -65,12 +73,13 @@ export default function JobListPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setJobs(loadJobs());
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then(setJobs)
+        .finally(() => setIsLoaded(true));
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [session]);
 
   const jobTypes = useMemo(() => {
     return Array.from(
@@ -165,6 +174,7 @@ export default function JobListPage() {
     const updatedJob = updateStoredJobStatus(jobId, status);
     setJobs(loadJobs());
     if (updatedJob) {
+      void upsertCloudJobs(session, [updatedJob]);
     }
     setMessage(t.updateSuccess);
   };
@@ -172,7 +182,12 @@ export default function JobListPage() {
   const handleLoadSampleData = () => {
     saveJobs(SAMPLE_JOBS);
     setJobs(loadJobs());
+    void upsertCloudJobs(session, SAMPLE_JOBS);
     setMessage(t.sampleDataLoaded);
+    trackProductEvent("demo_sample_loaded", {
+      jobCount: SAMPLE_JOBS.length,
+      source: "tracker"
+    });
   };
 
   const handleToggleJob = (jobId: string, checked: boolean) => {
@@ -192,9 +207,12 @@ export default function JobListPage() {
   };
 
   const handleBatchStatusUpdate = () => {
-    selectedJobIds.forEach((jobId) => updateStoredJobStatus(jobId, batchStatus));
+    const updatedJobs = selectedJobIds
+      .map((jobId) => updateStoredJobStatus(jobId, batchStatus))
+      .filter(Boolean) as JobRecord[];
     const nextJobs = loadJobs();
     setJobs(nextJobs);
+    void upsertCloudJobs(session, updatedJobs);
     setSelectedJobIds([]);
     setMessage(t.updateSuccess);
   };
@@ -208,6 +226,7 @@ export default function JobListPage() {
     const nextJobs = jobs.filter((job) => !selectedSet.has(job.id));
     saveJobs(nextJobs);
     setJobs(loadJobs());
+    void deleteCloudJobs(session, selectedJobIds);
     setSelectedJobIds([]);
     setMessage(t.deleteSuccess);
   };
@@ -216,11 +235,22 @@ export default function JobListPage() {
     const exportJobs = selectedJobs.length ? selectedJobs : filteredJobs;
     exportJobsToCsv(exportJobs);
     setMessage(t.exportSuccess);
+    trackProductEvent("csv_exported", {
+      jobCount: exportJobs.length,
+      selectedOnly: selectedJobs.length > 0
+    });
   };
 
-  const handleAnalyzeJdClick = () => {};
+  const handleAnalyzeJdClick = () => {
+    trackProductEvent("analyze_jd_clicked", { source: "tracker" });
+  };
 
   const handleOpenJobDetail = (job: JobRecord) => {
+    trackProductEvent("job_detail_opened", {
+      jobId: job.id,
+      matchScore: job.match_score,
+      status: job.application_status
+    });
     router.push(`/jobs/${job.id}`);
   };
 

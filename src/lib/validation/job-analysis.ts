@@ -1,5 +1,7 @@
-export const MIN_JD_TEXT_LENGTH = 80;
-export const MAX_JD_TEXT_LENGTH = 12000;
+import {
+  MAX_JD_TEXT_LENGTH,
+  MIN_JD_TEXT_LENGTH
+} from "@/lib/credits/constants";
 
 export type JobAnalysisValidationCode =
   | "empty_jd"

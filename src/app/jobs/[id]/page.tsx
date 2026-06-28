@@ -9,9 +9,15 @@ import { CompanyLogo } from "@/components/jobs/company-logo";
 import { DetailSection } from "@/components/jobs/detail-section";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { StatusSelect } from "@/components/jobs/status-select";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { formatDate } from "@/lib/utils";
-import { deleteStoredJob, loadJobs, updateStoredJobStatus } from "@/lib/storage/jobs";
+import {
+  deleteCloudJob,
+  hydrateJobsFromCloud,
+  upsertCloudJob
+} from "@/lib/storage/cloud-sync";
+import { deleteStoredJob, updateStoredJobStatus } from "@/lib/storage/jobs";
 import {
   ApplicationStatus,
   JobRecord,
@@ -24,6 +30,7 @@ type Tab = "overview" | "analysis" | "tracking";
 export default function JobDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useAuth();
   const { language, t, recommendations, nextActions, priorities } = useLanguage();
   const [job, setJob] = useState<JobRecord | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -31,21 +38,24 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const jobs = loadJobs();
-      setJob(jobs.find((item) => item.id === params.id) ?? null);
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then((jobs) => {
+          setJob(jobs.find((item) => item.id === params.id) ?? null);
+        })
+        .finally(() => setIsLoaded(true));
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [params.id]);
+  }, [params.id, session]);
 
   const handleStatusChange = (status: ApplicationStatus) => {
     const updatedJob = updateStoredJobStatus(params.id, status);
-    if (updatedJob) { setJob(updatedJob); }
+    if (updatedJob) { setJob(updatedJob); void upsertCloudJob(session, updatedJob); }
   };
 
   const handleDelete = () => {
     if (!window.confirm(t.deleteConfirm)) return;
     deleteStoredJob(params.id);
+    void deleteCloudJob(session, params.id);
     router.push("/workspace");
   };
 

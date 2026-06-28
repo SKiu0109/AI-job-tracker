@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
   getAiProvider,
   getAiProviderConfigStatus
 } from "@/lib/ai/job-analysis-provider";
+import { isAdminEmail } from "@/lib/auth/admin";
+import { getBearerToken, verifySupabaseAccessToken } from "@/lib/auth/server-auth";
+import { JD_ANALYSIS_CREDIT_COST } from "@/lib/credits/constants";
+import {
+  getOrCreateUserAccount,
+  type ServerAccountRecord
+} from "@/lib/server/account-service";
 import {
   createServerAnalysisCacheKey,
   readServerCachedAnalysis,
   writeServerCachedAnalysis
 } from "@/lib/server/analysis-cache";
+import { getCreditsService } from "@/lib/server/credits-service";
+import {
+  applyGuestSessionCookie,
+  getOrCreateGuestSession,
+  GUEST_ID_COOKIE
+} from "@/lib/server/guest-session";
+import {
+  createAdminCreditBalance,
+  getUserCreditsService
+} from "@/lib/server/user-credits-service";
 import { validateRawJd } from "@/lib/validation/job-analysis";
+import type { CreditBalance } from "@/types/credits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -23,6 +42,11 @@ type BilingualMessage = {
   en: string;
   zh: string;
 };
+
+type CreditReservation =
+  | { kind: "admin"; balance: CreditBalance }
+  | { kind: "user"; userId: string; monthlyLimit: number; balance: CreditBalance }
+  | { kind: "guest"; guestId: string; balance: CreditBalance };
 
 const ERROR_MESSAGES = {
   invalid_json: {
@@ -45,6 +69,14 @@ const ERROR_MESSAGES = {
     en: "Demo mode is active. Configure an API key to run real AI JD analysis.",
     zh: "当前为演示模式。如需真实 AI 岗位分析，请配置 API Key。"
   },
+  credits_exhausted: {
+    en: "Your 10 free guest credits have been used. Sample data and cached analyses are still available.",
+    zh: "你的 10 次免费访客额度已用完。仍可使用示例数据和已缓存分析。"
+  },
+  credits_unavailable: {
+    en: "Credit storage is unavailable. Please check Supabase server configuration before running paid AI analysis.",
+    zh: "额度存储暂时不可用。请先检查 Supabase 服务端配置，再运行付费 AI 分析。"
+  },
   analysis_failed: {
     en: "The AI provider could not complete this analysis. Please try again later.",
     zh: "AI 服务暂时无法完成分析，请稍后再试。"
@@ -66,33 +98,120 @@ export async function POST(request: Request) {
     return jsonError(validation.code, ERROR_MESSAGES[validation.code], 400);
   }
 
+  const cookieStore = await cookies();
+  const guestSession = getOrCreateGuestSession(
+    cookieStore.get(GUEST_ID_COOKIE)?.value
+  );
+  const creditsService = getCreditsService();
+  const authUser = await verifySupabaseAccessToken(
+    getBearerToken(request.headers.get("authorization"))
+  );
+  const isAdmin = isAdminEmail(authUser?.email);
+  let userAccount: ServerAccountRecord | null = null;
+
+  try {
+    userAccount =
+      authUser && !isAdmin
+        ? await getOrCreateUserAccount(authUser.id, authUser.email)
+        : null;
+  } catch (error) {
+    console.error(
+      "Account storage unavailable",
+      error instanceof Error ? error.message : String(error)
+    );
+    return jsonError(
+      "credits_unavailable",
+      ERROR_MESSAGES.credits_unavailable,
+      503
+    );
+  }
+
+  const userCreditsService = getUserCreditsService();
+  let currentCredits: CreditBalance;
+
+  try {
+    currentCredits = isAdmin
+      ? createAdminCreditBalance()
+      : authUser && userAccount
+        ? await userCreditsService.getBalance(
+            authUser.id,
+            userAccount.monthlyCreditLimit
+          )
+        : await creditsService.getBalance(guestSession.guestId);
+  } catch (error) {
+    console.error(
+      "Credit storage unavailable",
+      error instanceof Error ? error.message : String(error)
+    );
+    const response = jsonError(
+      "credits_unavailable",
+      ERROR_MESSAGES.credits_unavailable,
+      503
+    );
+    applyGuestSessionCookie(response, guestSession.guestId);
+    return response;
+  }
+
+  const respond = (
+    payload: Record<string, unknown>,
+    init?: ResponseInit
+  ) => {
+    const response = NextResponse.json(payload, init);
+    applyGuestSessionCookie(response, guestSession.guestId);
+    return response;
+  };
   const rawJd = validation.rawJd;
   const candidateProfile = body.candidate_profile?.trim() ?? "";
   const cacheKey = createServerAnalysisCacheKey(rawJd, candidateProfile);
   const cachedAnalysis = readServerCachedAnalysis(cacheKey);
 
   if (cachedAnalysis) {
-    return NextResponse.json({
+    return respond({
       analysis: cachedAnalysis,
-      cached: true
+      cached: true,
+      credits: toPublicCredits(currentCredits)
     });
   }
 
-  const providerStatus = getAiProviderConfigStatus();
+  const providerStatus = getAiProviderConfigStatus({
+    useAdminConfig: isAdmin
+  });
 
   if (!providerStatus.configured) {
-    return NextResponse.json(
+    return respond(
       {
         code: "missing_api_key",
         error: ERROR_MESSAGES.missing_api_key.en,
-        message: ERROR_MESSAGES.missing_api_key
+        message: ERROR_MESSAGES.missing_api_key,
+        credits: toPublicCredits(currentCredits)
       },
       { status: 503 }
     );
   }
 
+  const reservation = await reserveCredit({
+    authUser,
+    currentCredits,
+    guestId: guestSession.guestId,
+    isAdmin,
+    monthlyLimit: userAccount?.monthlyCreditLimit
+  });
+
+  if (!reservation) {
+    return respond(
+      {
+        code: "credits_exhausted",
+        error: ERROR_MESSAGES.credits_exhausted.en,
+        message: ERROR_MESSAGES.credits_exhausted,
+        credits: toPublicCredits(currentCredits)
+      },
+      { status: 402 }
+    );
+  }
+
   try {
-    const provider = getAiProvider();
+    const provider = getAiProvider({ useAdminConfig: isAdmin });
+
     const analysis = await provider.analyzeJob({
       rawJd,
       sourceUrl: body.source_url,
@@ -101,17 +220,35 @@ export async function POST(request: Request) {
 
     writeServerCachedAnalysis(cacheKey, analysis);
 
-    return NextResponse.json({
+    return respond({
       analysis,
-      cached: false
+      cached: false,
+      credits: toPublicCredits(
+        await getLatestCredits({
+          authUser,
+          guestId: guestSession.guestId,
+          isAdmin,
+          monthlyLimit: userAccount?.monthlyCreditLimit
+        })
+      )
     });
   } catch (error) {
+    await refundReservation(reservation);
+
     if (isMissingApiKeyError(error)) {
-      return NextResponse.json(
+      return respond(
         {
           code: "missing_api_key",
           error: ERROR_MESSAGES.missing_api_key.en,
-          message: ERROR_MESSAGES.missing_api_key
+          message: ERROR_MESSAGES.missing_api_key,
+          credits: toPublicCredits(
+            await getLatestCredits({
+              authUser,
+              guestId: guestSession.guestId,
+              isAdmin,
+              monthlyLimit: userAccount?.monthlyCreditLimit
+            })
+          )
         },
         { status: 503 }
       );
@@ -123,11 +260,19 @@ export async function POST(request: Request) {
       error instanceof Error && error.stack ? error.stack.slice(0, 500) : ""
     );
 
-    return NextResponse.json(
+    return respond(
       {
         code: "analysis_failed",
         error: ERROR_MESSAGES.analysis_failed.en,
-        message: ERROR_MESSAGES.analysis_failed
+        message: ERROR_MESSAGES.analysis_failed,
+        credits: toPublicCredits(
+          await getLatestCredits({
+            authUser,
+            guestId: guestSession.guestId,
+            isAdmin,
+            monthlyLimit: userAccount?.monthlyCreditLimit
+          })
+        )
       },
       { status: 500 }
     );
@@ -143,6 +288,108 @@ function jsonError(code: string, message: BilingualMessage, status: number) {
     },
     { status }
   );
+}
+
+function toPublicCredits(balance: CreditBalance) {
+  return {
+    remaining: balance.remaining,
+    limit: balance.limit,
+    costPerAnalysis: balance.costPerAnalysis,
+    store: balance.store
+  };
+}
+
+async function reserveCredit({
+  authUser,
+  currentCredits,
+  guestId,
+  isAdmin,
+  monthlyLimit
+}: {
+  authUser: { id: string } | null;
+  currentCredits: CreditBalance;
+  guestId: string;
+  isAdmin: boolean;
+  monthlyLimit?: number;
+}): Promise<CreditReservation | null> {
+  if (isAdmin) {
+    return {
+      kind: "admin",
+      balance: currentCredits
+    };
+  }
+
+  if (authUser && monthlyLimit !== undefined) {
+    const balance = await getUserCreditsService().trySpend(
+      authUser.id,
+      JD_ANALYSIS_CREDIT_COST,
+      monthlyLimit
+    );
+
+    return balance
+      ? {
+          kind: "user",
+          userId: authUser.id,
+          monthlyLimit,
+          balance
+        }
+      : null;
+  }
+
+  const balance = await getCreditsService().trySpend(
+    guestId,
+    JD_ANALYSIS_CREDIT_COST
+  );
+
+  return balance
+    ? {
+        kind: "guest",
+        guestId,
+        balance
+      }
+    : null;
+}
+
+async function refundReservation(reservation: CreditReservation) {
+  if (reservation.kind === "admin") {
+    return;
+  }
+
+  if (reservation.kind === "user") {
+    await getUserCreditsService().refund(
+      reservation.userId,
+      JD_ANALYSIS_CREDIT_COST,
+      reservation.monthlyLimit
+    );
+    return;
+  }
+
+  await getCreditsService().refund(
+    reservation.guestId,
+    JD_ANALYSIS_CREDIT_COST
+  );
+}
+
+async function getLatestCredits({
+  authUser,
+  guestId,
+  isAdmin,
+  monthlyLimit
+}: {
+  authUser: { id: string } | null;
+  guestId: string;
+  isAdmin: boolean;
+  monthlyLimit?: number;
+}) {
+  if (isAdmin) {
+    return createAdminCreditBalance();
+  }
+
+  if (authUser && monthlyLimit !== undefined) {
+    return getUserCreditsService().getBalance(authUser.id, monthlyLimit);
+  }
+
+  return getCreditsService().getBalance(guestId);
 }
 
 function isMissingApiKeyError(error: unknown) {

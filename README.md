@@ -104,13 +104,22 @@ The open-source local workflow is intentionally local-first:
 - Uploaded resume files are used for one-time text extraction and are not stored by the app.
 - Source URLs are saved only as references; the app does not scrape LinkedIn, Seek, Indeed, or other protected job boards.
 
-## Online Version
+## Hosted Version Notes
 
-The hosted product version is developed and deployed separately with additional
-cloud features. The public open-source repository intentionally keeps only the
-local deployment code.
+Some files support the hosted development/deployment version, including optional Supabase auth, cloud sync, guest/user credits, redemption codes, feedback capture, and product-event tracking.
 
 Hosted demo: [https://ai-bilingual-job-tracker.vercel.app](https://ai-bilingual-job-tracker.vercel.app)
+
+For local open-source use, these services are optional. If you want to experiment with the hosted path, start from:
+
+- `supabase/validation-mvp.sql`
+- `supabase/next-phase-auth-cloud.sql`
+- `supabase/redemption-codes.sql`
+- `supabase/fix-security-definer-execute-grants.sql`
+- `supabase/fix-rls-no-policy-lints.sql`
+- `.env.example`
+
+Production deployments must use persistent storage for credits and authenticated user data. In-memory fallback is suitable for local development and demos only.
 
 ## Useful Commands
 
@@ -125,10 +134,11 @@ pnpm audit --prod
 ```text
 src/app                 Next.js pages and API routes
 src/components          UI and feature components
-src/lib                 AI, local storage, i18n, server utilities
+src/lib                 AI, auth, storage, i18n, server utilities
 src/types               Shared TypeScript types
 samples                 Sample job description
 scripts                 Windows local app helpers
+supabase                Optional hosted-version SQL
 ```
 
 ## Contributors

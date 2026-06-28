@@ -5,13 +5,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { CompanyLogo } from "@/components/jobs/company-logo";
 import { ScoreBadge } from "@/components/jobs/score-badge";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { hydrateJobsFromCloud, upsertCloudJobs } from "@/lib/storage/cloud-sync";
 import { loadJobs, saveJobs } from "@/lib/storage/jobs";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
 import { APPLICATION_STATUSES, JobRecord } from "@/types/job";
 import { DASHBOARD_REFRESH_INTERVAL_MS, MS_PER_MINUTE } from "@/lib/constants";
 
 export default function DashboardPage() {
+  const { session } = useAuth();
   const { language, t, statuses } = useLanguage();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -21,20 +24,24 @@ export default function DashboardPage() {
     setIsLoaded(false);
     setLastRefreshedAt(Date.now());
     const timer = window.setTimeout(() => {
-      setJobs(loadJobs());
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then(setJobs)
+        .finally(() => setIsLoaded(true));
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setJobs(loadJobs());
-      setLastRefreshedAt(Date.now());
-      setIsLoaded(true);
+      hydrateJobsFromCloud(session)
+        .then((loadedJobs) => {
+          setJobs(loadedJobs);
+          setLastRefreshedAt(Date.now());
+        })
+        .finally(() => setIsLoaded(true));
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [session]);
 
   const analytics = useMemo(() => buildAnalytics(jobs, language), [jobs, language]);
   const insights = useMemo(() => buildInsights(analytics, jobs, t, language), [analytics, jobs, t, language]);
@@ -42,6 +49,7 @@ export default function DashboardPage() {
   const handleLoadSampleData = () => {
     saveJobs(SAMPLE_JOBS);
     setJobs(loadJobs());
+    void upsertCloudJobs(session, SAMPLE_JOBS);
     setLastRefreshedAt(Date.now());
   };
 

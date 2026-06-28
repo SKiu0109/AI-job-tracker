@@ -7,6 +7,7 @@ import { CompanyLogo } from "@/components/jobs/company-logo";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { LanguageDropdown } from "@/components/layout/language-toggle";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { trackProductEvent } from "@/lib/product/analytics";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
 import { saveJobs } from "@/lib/storage/jobs";
 import { FLOAT_ANIMATION_DELAY_MS } from "@/lib/constants";
@@ -169,6 +170,7 @@ export default function LandingPage() {
 
   const handleTryDemo = () => {
     saveJobs(SAMPLE_JOBS);
+    trackProductEvent("demo_sample_loaded", { jobCount: SAMPLE_JOBS.length, source: "landing" });
     if (typeof window !== "undefined") window.localStorage.setItem("from_demo_entry", "1");
     router.push("/workspace");
   };
