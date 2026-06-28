@@ -207,11 +207,11 @@ end;
 $$;
 
 revoke execute on function get_or_create_user_monthly_credit_balance(uuid, date, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 revoke execute on function try_spend_user_monthly_credit(uuid, date, integer, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 revoke execute on function refund_user_monthly_credit(uuid, date, integer, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 
 grant execute on function get_or_create_user_monthly_credit_balance(uuid, date, integer)
   to service_role;

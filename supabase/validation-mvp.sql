@@ -154,11 +154,11 @@ end;
 $$;
 
 revoke execute on function get_or_create_guest_credit_balance(text, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 revoke execute on function try_spend_guest_credit(text, integer, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 revoke execute on function refund_guest_credit(text, integer, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 
 grant execute on function get_or_create_guest_credit_balance(text, integer)
   to service_role;

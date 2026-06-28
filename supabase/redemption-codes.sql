@@ -217,9 +217,9 @@ $$;
 -- ============================================================
 
 revoke execute on function add_user_monthly_credits(uuid, date, integer, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 revoke execute on function redeem_code(text, uuid, date, integer)
-  from anon, authenticated;
+  from public, anon, authenticated;
 
 grant execute on function add_user_monthly_credits(uuid, date, integer, integer)
   to service_role;

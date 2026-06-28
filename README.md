@@ -115,6 +115,7 @@ For local open-source use, these services are optional. If you want to experimen
 - `supabase/validation-mvp.sql`
 - `supabase/next-phase-auth-cloud.sql`
 - `supabase/redemption-codes.sql`
+- `supabase/fix-security-definer-execute-grants.sql`
 - `.env.example`
 
 Production deployments must use persistent storage for credits and authenticated user data. In-memory fallback is suitable for local development and demos only.
