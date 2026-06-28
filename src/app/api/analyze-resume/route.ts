@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { getAiProvider } from "@/lib/ai/job-analysis-provider";
-import { isAdminEmail } from "@/lib/auth/admin";
-import { getBearerToken, verifySupabaseAccessToken } from "@/lib/auth/server-auth";
 import { normalizeCandidateProfile } from "@/lib/candidate-profile";
 import {
   extractResumeText,
@@ -35,12 +33,7 @@ export async function POST(request: Request) {
   try {
     const currentProfile = parseCurrentProfile(formData.get("current_profile"));
     const extracted = await extractResumeText(resume);
-    const authUser = await verifySupabaseAccessToken(
-      getBearerToken(request.headers.get("authorization"))
-    );
-    const provider = getAiProvider({
-      useAdminConfig: isAdminEmail(authUser?.email)
-    });
+    const provider = getAiProvider();
     const analysis = await provider.analyzeResumeProfile({
       resumeText: extracted.text,
       currentProfile

@@ -50,13 +50,9 @@ type ProviderConfig = {
   providerName: string;
 };
 
-type ProviderConfigOptions = {
-  useAdminConfig?: boolean;
-};
-
-export function getAiProviderConfigStatus(options: ProviderConfigOptions = {}) {
+export function getAiProviderConfigStatus() {
   try {
-    const config = getProviderConfig(options);
+    const config = getProviderConfig();
     return {
       configured: isConfiguredApiKey(config.apiKey),
       provider: config.providerName,
@@ -65,35 +61,35 @@ export function getAiProviderConfigStatus(options: ProviderConfigOptions = {}) {
   } catch {
     return {
       configured: false,
-      provider: getProviderName(options.useAdminConfig)
+      provider: getProviderName()
     };
   }
 }
 
-export function getAiProvider(options: ProviderConfigOptions = {}): AiProvider {
-  return new ChatCompletionsJobAnalysisProvider(getProviderConfig(options));
+export function getAiProvider(): AiProvider {
+  return new ChatCompletionsJobAnalysisProvider(getProviderConfig());
 }
 
-function getProviderConfig(options: ProviderConfigOptions = {}): ProviderConfig {
-  const provider = getProviderName(options.useAdminConfig);
+function getProviderConfig(): ProviderConfig {
+  const provider = getProviderName();
 
   switch (provider.toLowerCase()) {
     case "openai":
       return {
-        apiKey: getApiKey("openai", options.useAdminConfig),
-        apiKeyEnvName: getApiKeyEnvName("openai", options.useAdminConfig),
+        apiKey: getApiKey("openai"),
+        apiKeyEnvName: getApiKeyEnvName("openai"),
         endpoint: "https://api.openai.com/v1/chat/completions",
         maxTokensField: "max_completion_tokens",
-        model: getModel("gpt-5-mini", options.useAdminConfig),
+        model: getModel("gpt-5-mini"),
         providerName: "OpenAI"
       };
     case "deepseek":
       return {
-        apiKey: getApiKey("deepseek", options.useAdminConfig),
-        apiKeyEnvName: getApiKeyEnvName("deepseek", options.useAdminConfig),
+        apiKey: getApiKey("deepseek"),
+        apiKeyEnvName: getApiKeyEnvName("deepseek"),
         endpoint: "https://api.deepseek.com/chat/completions",
         maxTokensField: "max_tokens",
-        model: getModel("deepseek-v4-flash", options.useAdminConfig),
+        model: getModel("deepseek-v4-flash"),
         providerName: "DeepSeek"
       };
     default:
@@ -101,47 +97,26 @@ function getProviderConfig(options: ProviderConfigOptions = {}): ProviderConfig 
   }
 }
 
-function getProviderName(useAdminConfig?: boolean) {
-  return (
-    (useAdminConfig ? process.env.ADMIN_AI_PROVIDER : undefined) ||
-    process.env.AI_PROVIDER ||
-    "openai"
-  );
+function getProviderName() {
+  return process.env.AI_PROVIDER || "openai";
 }
 
-function getModel(defaultModel: string, useAdminConfig?: boolean) {
-  return (
-    (useAdminConfig ? process.env.ADMIN_AI_MODEL : undefined) ||
-    process.env.AI_MODEL ||
-    defaultModel
-  );
+function getModel(defaultModel: string) {
+  return process.env.AI_MODEL || defaultModel;
 }
 
-function getApiKey(provider: "openai" | "deepseek", useAdminConfig?: boolean) {
+function getApiKey(provider: "openai" | "deepseek") {
   if (provider === "openai") {
-    return (
-      (useAdminConfig ? process.env.ADMIN_OPENAI_API_KEY : undefined) ||
-      process.env.OPENAI_API_KEY
-    );
+    return process.env.OPENAI_API_KEY;
   }
-  return (
-    (useAdminConfig ? process.env.ADMIN_DEEPSEEK_API_KEY : undefined) ||
-    process.env.DEEPSEEK_API_KEY
-  );
+  return process.env.DEEPSEEK_API_KEY;
 }
 
-function getApiKeyEnvName(
-  provider: "openai" | "deepseek",
-  useAdminConfig?: boolean
-) {
+function getApiKeyEnvName(provider: "openai" | "deepseek") {
   if (provider === "openai") {
-    return useAdminConfig && process.env.ADMIN_OPENAI_API_KEY
-      ? "ADMIN_OPENAI_API_KEY"
-      : "OPENAI_API_KEY";
+    return "OPENAI_API_KEY";
   }
-  return useAdminConfig && process.env.ADMIN_DEEPSEEK_API_KEY
-    ? "ADMIN_DEEPSEEK_API_KEY"
-    : "DEEPSEEK_API_KEY";
+  return "DEEPSEEK_API_KEY";
 }
 
 /** Collect full content from SSE streaming response */

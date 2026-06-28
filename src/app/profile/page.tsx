@@ -3,12 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/form-controls";
-import { useAuth } from "@/lib/auth/auth-provider";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import {
-  hydrateCandidateProfileFromCloud,
-  upsertCloudCandidateProfile
-} from "@/lib/storage/cloud-sync";
 import {
   loadCandidateProfile,
   resetCandidateProfile,
@@ -45,7 +40,6 @@ type ResumeAnalysisResponse = {
 };
 
 export default function CandidateProfilePage() {
-  const { session } = useAuth();
   const { t, confidences, language } = useLanguage();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [message, setMessage] = useState("");
@@ -62,10 +56,10 @@ export default function CandidateProfilePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      hydrateCandidateProfileFromCloud(session).then(setProfile);
+      setProfile(loadCandidateProfile());
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [session]);
+  }, []);
 
   const updateField = (field: ProfileField, value: string) => {
     setProfile((cur) => (cur ? { ...cur, [field]: value } : cur));
@@ -77,7 +71,6 @@ export default function CandidateProfilePage() {
     if (!profile) return;
     saveCandidateProfile(profile);
     setProfile(loadCandidateProfile());
-    void upsertCloudCandidateProfile(session, profile);
     setMessage(t.profileSaved);
   };
 
@@ -85,7 +78,6 @@ export default function CandidateProfilePage() {
     const nextProfile = resetCandidateProfile();
     setProfile(nextProfile);
     setAiFilledFields(new Set());
-    void upsertCloudCandidateProfile(session, nextProfile);
     setMessage(t.profileReset);
   };
 
@@ -106,9 +98,6 @@ export default function CandidateProfilePage() {
       formData.append("current_profile", JSON.stringify(profile));
       const response = await fetch("/api/analyze-resume", {
         method: "POST",
-        headers: session?.access_token
-          ? { authorization: `Bearer ${session.access_token}` }
-          : undefined,
         body: formData
       });
       const payload = (await response.json().catch(() => ({}))) as ResumeAnalysisResponse;
@@ -137,7 +126,6 @@ export default function CandidateProfilePage() {
 
     saveCandidateProfile(resumeAnalysis.candidate_profile);
     setProfile(loadCandidateProfile());
-    void upsertCloudCandidateProfile(session, resumeAnalysis.candidate_profile);
     setMessage(t.resumeProfileApplied);
     setResumeError("");
     setResumeExpanded(false);
