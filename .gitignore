@@ -40,6 +40,15 @@ ux-audit/
 # Internal migration/deployment notes
 MACBOOK_MIGRATION.md
 
+# One-off internal maintenance files excluded from open-source GitHub publishes
+docs/optimization-audit.md
+docs/product-design-audit-*.md
+scripts/audit-duplicate-guest-bonus.mjs
+scripts/create-macbook-migration-package.ps1
+scripts/rebuild-page.py
+scripts/split-job-detail.py
+scripts/update-page-tsx.py
+
 # Environment
 .env
 .env.local
