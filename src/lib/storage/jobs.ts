@@ -2,6 +2,8 @@
 
 import {
   APPLICATION_RECOMMENDATIONS,
+  ACTION_STAGES,
+  ActionStage,
   ApplicationRecommendation,
   ApplicationStatus,
   CONFIDENCE_LEVELS,
@@ -16,12 +18,21 @@ import {
   PRIORITY_LEVELS,
   PriorityLevel,
   RecommendedNextAction,
+  ResumeTailoringVersion,
   ScoreDimension,
   StatusTimelineItem,
+  TAILORING_STATUSES,
+  TailoringStatus,
   WorkMode,
   WORK_MODES
 } from "@/types/job";
 import { clampScore } from "@/lib/utils";
+import {
+  getScopedStorageKey,
+  isUserStorageScope,
+  type StorageScope
+} from "@/lib/storage/scope";
+import { getCompanyLogoMetadata } from "@/lib/company-logo";
 
 const JOBS_STORAGE_KEY = "ai-bilingual-job-tracker.jobs.v1";
 const ANALYSIS_CACHE_KEY = "ai-bilingual-job-tracker.analysis-cache.v1";
@@ -34,13 +45,13 @@ type AnalysisCache = Record<
   }
 >;
 
-export function loadJobs(): JobRecord[] {
+export function loadJobs(scope?: StorageScope): JobRecord[] {
   if (!canUseStorage()) {
     return [];
   }
 
   try {
-    const raw = window.localStorage.getItem(JOBS_STORAGE_KEY);
+    const raw = readScopedStorageValue(JOBS_STORAGE_KEY, scope);
     const jobs = raw ? (JSON.parse(raw) as JobRecord[]) : [];
     return Array.isArray(jobs) ? jobs.map(normalizeStoredJob) : [];
   } catch {
@@ -48,25 +59,26 @@ export function loadJobs(): JobRecord[] {
   }
 }
 
-export function getStoredJob(id: string) {
-  return loadJobs().find((job) => job.id === id);
+export function getStoredJob(id: string, scope?: StorageScope) {
+  return loadJobs(scope).find((job) => job.id === id);
 }
 
-export function saveJob(job: JobRecord) {
-  const jobs = loadJobs();
+export function saveJob(job: JobRecord, scope?: StorageScope) {
+  const jobs = loadJobs(scope);
   const nextJobs = [
     normalizeStoredJob(job),
     ...jobs.filter((item) => item.id !== job.id)
   ];
-  saveJobs(nextJobs);
+  saveJobs(nextJobs, scope);
 }
 
 export function updateStoredJobStatus(
   id: string,
   status: ApplicationStatus,
-  note = ""
+  note = "",
+  scope?: StorageScope
 ) {
-  const jobs = loadJobs();
+  const jobs = loadJobs(scope);
   const now = new Date().toISOString();
   const nextJobs = jobs.map((job) => {
     if (job.id !== id) {
@@ -75,9 +87,20 @@ export function updateStoredJobStatus(
 
     const statusChanged = job.application_status !== status;
 
+    const statusActionStage = deriveActionStageFromStatus(status, job.action_stage);
+
     return normalizeStoredJob({
       ...job,
       application_status: status,
+      action_stage: statusActionStage,
+      follow_up_date:
+        statusActionStage === "follow_up"
+          ? job.follow_up_date || deriveFollowUpDate({ ...job, application_status: status, updated_at: now })
+          : job.follow_up_date,
+      next_step_note:
+        statusActionStage !== job.action_stage
+          ? deriveNextStepNote({ ...job, application_status: status }, statusActionStage)
+          : job.next_step_note,
       updated_at: now,
       status_history:
         statusChanged || note.trim()
@@ -92,16 +115,17 @@ export function updateStoredJobStatus(
     });
   });
 
-  saveJobs(nextJobs);
+  saveJobs(nextJobs, scope);
   return nextJobs.find((job) => job.id === id);
 }
 
 export function updateStoredJob(
   id: string,
   updates: Partial<JobRecord>,
-  statusNote = ""
+  statusNote = "",
+  scope?: StorageScope
 ) {
-  const jobs = loadJobs();
+  const jobs = loadJobs(scope);
   const now = new Date().toISOString();
   let updatedJob: JobRecord | undefined;
 
@@ -133,27 +157,40 @@ export function updateStoredJob(
     return nextJob;
   });
 
-  saveJobs(nextJobs);
+  saveJobs(nextJobs, scope);
   return updatedJob;
 }
 
-export function deleteStoredJob(id: string) {
-  saveJobs(loadJobs().filter((job) => job.id !== id));
+export function deleteStoredJob(id: string, scope?: StorageScope) {
+  saveJobs(loadJobs(scope).filter((job) => job.id !== id), scope);
 }
 
-export function saveJobs(jobs: JobRecord[]) {
+export function saveJobs(jobs: JobRecord[], scope?: StorageScope) {
   if (!canUseStorage()) {
     return;
   }
 
   window.localStorage.setItem(
-    JOBS_STORAGE_KEY,
+    getScopedStorageKey(JOBS_STORAGE_KEY, scope),
     JSON.stringify(jobs.map(normalizeStoredJob))
   );
 }
 
-export function createAnalysisCacheKey(rawJd: string, candidateProfile = "") {
-  const normalized = `${rawJd}\n${candidateProfile}`
+export function prependMissingJobs(
+  existingJobs: JobRecord[],
+  incomingJobs: JobRecord[]
+) {
+  const existingIds = new Set(existingJobs.map((job) => job.id));
+  const missingJobs = incomingJobs.filter((job) => !existingIds.has(job.id));
+  return [...missingJobs, ...existingJobs];
+}
+
+export function createAnalysisCacheKey(
+  rawJd: string,
+  candidateProfile = "",
+  language: "en" | "zh" = "en"
+) {
+  const normalized = `${language}\n${rawJd}\n${candidateProfile}`
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -166,20 +203,22 @@ export function createAnalysisCacheKey(rawJd: string, candidateProfile = "") {
   return `${normalized.length}:${Math.abs(hash).toString(36)}`;
 }
 
-export function readCachedAnalysis(cacheKey: string) {
-  return readAnalysisCache()[cacheKey]?.analysis;
+export function readCachedAnalysis(cacheKey: string, scope?: StorageScope) {
+  return readAnalysisCache(scope)[cacheKey]?.analysis;
 }
 
-export function writeCachedAnalysis(cacheKey: string, analysis: JobAnalysis) {
-  const cache = readAnalysisCache();
+export function writeCachedAnalysis(
+  cacheKey: string,
+  analysis: JobAnalysis,
+  scope?: StorageScope
+) {
+  const cache = readAnalysisCache(scope);
   cache[cacheKey] = {
     analysis,
     createdAt: new Date().toISOString()
   };
 
-  if (canUseStorage()) {
-    window.localStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify(cache));
-  }
+  writeAnalysisCache(cache, scope);
 }
 
 export function createInitialStatusHistory(
@@ -192,13 +231,13 @@ export function createInitialStatusHistory(
   ];
 }
 
-function readAnalysisCache(): AnalysisCache {
+function readAnalysisCache(scope?: StorageScope): AnalysisCache {
   if (!canUseStorage()) {
     return {};
   }
 
   try {
-    const raw = window.localStorage.getItem(ANALYSIS_CACHE_KEY);
+    const raw = readScopedStorageValue(ANALYSIS_CACHE_KEY, scope);
     const cache = raw ? (JSON.parse(raw) as AnalysisCache) : {};
     return cache && typeof cache === "object" ? cache : {};
   } catch {
@@ -206,7 +245,36 @@ function readAnalysisCache(): AnalysisCache {
   }
 }
 
-function normalizeStoredJob(job: JobRecord): JobRecord {
+function writeAnalysisCache(cache: AnalysisCache, scope?: StorageScope) {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    getScopedStorageKey(ANALYSIS_CACHE_KEY, scope),
+    JSON.stringify(cache)
+  );
+}
+
+function readScopedStorageValue(baseKey: string, scope?: StorageScope) {
+  const scopedKey = getScopedStorageKey(baseKey, scope);
+  const scopedValue = window.localStorage.getItem(scopedKey);
+
+  if (scopedValue || isUserStorageScope(scope)) {
+    return scopedValue;
+  }
+
+  const legacyValue = window.localStorage.getItem(baseKey);
+
+  if (legacyValue) {
+    window.localStorage.setItem(scopedKey, legacyValue);
+    window.localStorage.removeItem(baseKey);
+  }
+
+  return legacyValue;
+}
+
+export function normalizeStoredJob(job: JobRecord): JobRecord {
   const now = new Date().toISOString();
   const matchScore = clampScore(job.match_score);
   const skills = asStringArray(job.skills);
@@ -214,6 +282,21 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
   const createdAt = asString(job.created_at, now);
   const updatedAt = asString(job.updated_at, createdAt);
   const status = asApplicationStatus(job.application_status);
+  const recommendedNextAction = normalizeNextAction(
+    job.recommended_next_action,
+    matchScore
+  );
+  const resumeTailoringDraft = normalizeResumeTailoringDraft(job);
+  const actionStage = asActionStage(job.action_stage, job, recommendedNextAction.action);
+  const logoMetadata = getCompanyLogoMetadata(job.source_url || "");
+  const companyDomain = asString(
+    job.company_domain,
+    logoMetadata.company_domain ?? ""
+  );
+  const companyLogoUrl = asString(
+    job.company_logo_url,
+    logoMetadata.company_logo_url ?? ""
+  );
 
   return {
     ...job,
@@ -262,10 +345,7 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
       job.application_recommendation,
       matchScore
     ),
-    recommended_next_action: normalizeNextAction(
-      job.recommended_next_action,
-      matchScore
-    ),
+    recommended_next_action: recommendedNextAction,
     red_flags_en: asStringArray(job.red_flags_en),
     red_flags_zh: asStringArray(job.red_flags_zh),
     positive_signals_en: asStringArray(job.positive_signals_en),
@@ -291,12 +371,20 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
     ai_summary_en: asString(job.ai_summary_en, "Not specified"),
     ai_summary_zh: asString(job.ai_summary_zh, "Not specified"),
     resume_keywords: asStringArray(job.resume_keywords),
+    resume_tailoring_draft: resumeTailoringDraft,
     id: asString(job.id, createId()),
     application_status: status,
     application_deadline: job.application_deadline || "",
     application_channel: job.application_channel || "",
     contact_person: job.contact_person || "",
     interview_date: job.interview_date || "",
+    follow_up_date: job.follow_up_date || deriveFollowUpDate(job),
+    next_step_note: job.next_step_note || deriveNextStepNote(job, actionStage),
+    action_stage: actionStage,
+    tailoring_status: asTailoringStatus(
+      job.tailoring_status,
+      resumeTailoringDraft
+    ),
     follow_up_notes: job.follow_up_notes || "",
     status_history: normalizeStatusHistory(
       job.status_history,
@@ -304,9 +392,14 @@ function normalizeStoredJob(job: JobRecord): JobRecord {
       status,
       updatedAt
     ),
+    company_domain: companyDomain || undefined,
+    company_logo_url: companyLogoUrl || undefined,
     source_url: job.source_url || "",
     raw_jd: job.raw_jd || "",
     notes: job.notes || "",
+    resume_tailoring_versions: normalizeResumeTailoringVersions(
+      job.resume_tailoring_versions
+    ),
     created_at: createdAt,
     updated_at: updatedAt
   };
@@ -466,6 +559,187 @@ function normalizeMissingSkillDetails(value: unknown): MissingSkillDetail[] {
       )
     }))
     .filter((item) => item.skill !== "Not specified");
+}
+
+function normalizeResumeTailoringDraft(job: JobRecord) {
+  const source: Record<string, unknown> = isRecord(job.resume_tailoring_draft)
+    ? job.resume_tailoring_draft
+    : {};
+  const bullets = asStringArray(
+    source.bullets_en,
+    asStringArray(job.resume_tailoring_advice_en).slice(0, 3)
+  );
+  const keywords = asStringArray(
+    source.keywords,
+    asStringArray(job.resume_keywords).slice(0, 8)
+  );
+  const explanationZh = asString(
+    source.explanation_zh,
+    asStringArray(job.resume_tailoring_advice_zh)[0] ||
+      asString(job.recommended_next_action?.reason_zh, "")
+  );
+
+  return {
+    summary_en: asString(
+      source.summary_en,
+      buildDefaultTailoringSummary(job)
+    ),
+    bullets_en: bullets,
+    keywords,
+    explanation_zh: explanationZh,
+    risk_notes_zh: asStringArray(
+      source.risk_notes_zh,
+      asStringArray(job.red_flags_zh).slice(0, 2)
+    )
+  };
+}
+
+function normalizeResumeTailoringVersions(value: unknown): ResumeTailoringVersion[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((item) => {
+      const draftSource = isRecord(item.draft) ? item.draft : {};
+      const draft = {
+        summary_en: asString(draftSource.summary_en, ""),
+        bullets_en: asStringArray(draftSource.bullets_en),
+        keywords: asStringArray(draftSource.keywords),
+        explanation_zh: asString(draftSource.explanation_zh, ""),
+        risk_notes_zh: asStringArray(draftSource.risk_notes_zh)
+      };
+
+      return {
+        id: asString(item.id, createId()),
+        created_at: asString(item.created_at, new Date().toISOString()),
+        label: asString(item.label, "Resume version"),
+        draft,
+        reviewed: Boolean(item.reviewed)
+      };
+    })
+    .filter((item) => item.draft.summary_en || item.draft.bullets_en.length)
+    .slice(0, 8);
+}
+
+function buildDefaultTailoringSummary(job: JobRecord) {
+  const strengths = asStringArray(job.key_strengths_en).slice(0, 2).join(", ");
+  const tools = asStringArray(job.important_tools, asStringArray(job.tools))
+    .slice(0, 3)
+    .join(", ");
+  const role = asString(job.job_title_en, asString(job.job_title_original, "this role"));
+
+  if (strengths && tools) {
+    return `Position the resume around ${strengths}, with clear evidence of ${tools} for ${role}.`;
+  }
+
+  if (strengths) {
+    return `Position the resume around ${strengths} and connect those strengths to ${role}.`;
+  }
+
+  return `Tailor the resume summary and project bullets to mirror the strongest requirements in ${role}.`;
+}
+
+function asActionStage(
+  value: unknown,
+  job: JobRecord,
+  nextAction: NextActionLabel
+): ActionStage {
+  const text = asString(value, "");
+
+  if (ACTION_STAGES.includes(text as ActionStage)) {
+    return text as ActionStage;
+  }
+
+  if (job.application_status === "Rejected" || job.application_status === "Offer") {
+    return "parked";
+  }
+
+  if (job.application_status === "Applied" || job.application_status === "Interview") {
+    return "follow_up";
+  }
+
+  if (nextAction === "Apply now" && clampScore(job.match_score) >= 75) {
+    return "ready_to_apply";
+  }
+
+  if (nextAction === "Tailor resume first") {
+    return "tailor_resume";
+  }
+
+  if (nextAction === "Save for later" || nextAction === "Skip") {
+    return "parked";
+  }
+
+  return "needs_review";
+}
+
+function asTailoringStatus(
+  value: unknown,
+  draft: ReturnType<typeof normalizeResumeTailoringDraft>
+): TailoringStatus {
+  const text = asString(value, "");
+
+  if (TAILORING_STATUSES.includes(text as TailoringStatus)) {
+    return text as TailoringStatus;
+  }
+
+  if (draft.summary_en || draft.bullets_en.length || draft.keywords.length) {
+    return "draft_ready";
+  }
+
+  return "not_started";
+}
+
+function deriveFollowUpDate(job: JobRecord) {
+  if (job.application_status !== "Applied" && job.application_status !== "Interview") {
+    return "";
+  }
+
+  const baseTime = getTime(job.updated_at || job.created_at);
+  const baseDate = baseTime ? new Date(baseTime) : new Date();
+  baseDate.setDate(baseDate.getDate() + (job.application_status === "Interview" ? 1 : 5));
+  return baseDate.toISOString().slice(0, 10);
+}
+
+function deriveActionStageFromStatus(
+  status: ApplicationStatus,
+  currentStage: ActionStage
+): ActionStage {
+  if (status === "Applied" || status === "Interview") {
+    return "follow_up";
+  }
+
+  if (status === "Rejected" || status === "Offer") {
+    return "parked";
+  }
+
+  return currentStage;
+}
+
+function deriveNextStepNote(job: JobRecord, actionStage: ActionStage) {
+  if (job.follow_up_notes?.trim()) {
+    return job.follow_up_notes.trim();
+  }
+
+  if (actionStage === "ready_to_apply") {
+    return "Review final resume keywords and submit today.";
+  }
+
+  if (actionStage === "tailor_resume") {
+    return "Draft a targeted summary and 2-3 role-specific bullets.";
+  }
+
+  if (actionStage === "follow_up") {
+    return "Check whether a follow-up note or interview thank-you is due.";
+  }
+
+  if (actionStage === "parked") {
+    return "Keep as lower priority unless the fit or timeline changes.";
+  }
+
+  return "Review fit evidence and decide whether this role deserves time.";
 }
 
 function createTimelineItem(

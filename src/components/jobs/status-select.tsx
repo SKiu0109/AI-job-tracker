@@ -13,14 +13,14 @@ export function StatusSelect({
   onChange: (value: ApplicationStatus) => void;
   compact?: boolean;
 }) {
-  const { statuses } = useLanguage();
+  const { language, statuses } = useLanguage();
 
   return (
     <Select
       value={value}
       onChange={(event) => onChange(event.target.value as ApplicationStatus)}
       className={compact ? "min-h-9 w-36 py-1 text-xs" : "w-full max-w-xs"}
-      aria-label="Application status"
+      aria-label={language === "zh" ? "申请状态" : "Application status"}
     >
       {APPLICATION_STATUSES.map((status) => (
         <option key={status} value={status}>

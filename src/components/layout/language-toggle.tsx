@@ -56,12 +56,13 @@ export function LanguageDropdown() {
     <div ref={ref} className="relative">
       <button
         type="button"
+        aria-label={currentOption.nativeName}
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg text-[12px] font-medium text-secondary transition-colors",
-          "bg-tertiary",
-          "hover:bg-hover hover:text-primary",
-          open && "bg-hover text-primary",
+          "inline-flex items-center gap-1.5 rounded-app border border-app-border-soft text-[12px] font-medium text-app-text-secondary shadow-app-card transition duration-300 ease-[var(--app-motion-standard)] active:scale-[0.992]",
+          "bg-app-surface backdrop-blur-xl",
+          "hover:bg-app-surface-hover hover:text-app-text-primary",
+          open && "bg-app-surface text-app-text-primary",
           "px-2.5 py-1.5",
         )}
       >
@@ -80,9 +81,12 @@ export function LanguageDropdown() {
           <line x1="2" y1="12" x2="22" y2="12" />
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
         </svg>
-        <span>{currentOption.nativeName}</span>
+        <span className="max-[420px]:sr-only">{currentOption.nativeName}</span>
         <svg
-          className={cn("h-3 w-3 transition-transform", open && "rotate-180")}
+          className={cn(
+            "h-3 w-3 transition-transform max-[420px]:hidden",
+            open && "rotate-180"
+          )}
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -94,26 +98,26 @@ export function LanguageDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1.5 min-w-[150px] rounded-lg border bg-tertiary p-1 shadow-panel">
+        <div className="app-sheet-enter absolute right-0 z-50 mt-1.5 min-w-[150px] rounded-lg border border-app-border-soft bg-app-surface p-1 shadow-app-floating backdrop-blur-xl">
           {LANGUAGE_OPTIONS.map((opt) => (
             <a
               key={opt.code}
               href={languageHref(opt.code)}
               onClick={(e) => handleSelect(e, opt.code)}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium transition-colors",
+                "flex items-center gap-2 rounded-app px-3 py-2 text-[13px] font-medium transition duration-300 ease-[var(--app-motion-standard)] active:scale-[0.98]",
                 language === opt.code
-                  ? "bg-accent-subtle text-accent"
-                  : "text-secondary hover:bg-hover hover:text-primary",
+                  ? "bg-app-accent-soft text-app-accent"
+                  : "text-app-text-secondary hover:bg-app-surface-hover hover:text-app-text-primary",
               )}
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold text-secondary bg-hover">
+              <span className="flex h-5 w-5 items-center justify-center rounded-app bg-app-surface text-[10px] font-bold text-app-text-secondary">
                 {opt.code.toUpperCase()}
               </span>
               <span className="flex-1">{opt.nativeName}</span>
               {language === opt.code && (
                 <svg
-                  className="h-4 w-4 text-accent"
+                  className="h-4 w-4 text-app-accent"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2.5"

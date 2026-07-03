@@ -1,4 +1,5 @@
 import {
+  ActionStage,
   JobRecord,
   MatchScoreBreakdown,
   MissingSkillDetail,
@@ -179,6 +180,13 @@ function createSampleJob(input: {
   regionZh: string;
 }): JobRecord {
   const createdAt = now;
+  const actionStage = getSampleActionStage(input.status, input.nextAction, input.score);
+  const followUpDate =
+    input.status === "Interview"
+      ? "2026-07-02"
+      : input.status === "Applied"
+        ? "2026-07-05"
+        : "";
 
   return {
     id: input.id,
@@ -223,7 +231,7 @@ function createSampleJob(input: {
     nice_to_have_en: ["Dashboard experience", "FinTech or consulting exposure"],
     nice_to_have_zh: ["仪表盘经验", "金融科技或咨询相关经历"],
     match_score: input.score,
-    match_score_breakdown: createBreakdown(input.score, input.region, input.regionZh),
+    match_score_breakdown: createBreakdown(input.score),
     key_strengths_en: [
       "Strong fit with statistics and business analytics background.",
       "Relevant SQL, Python, Excel, and report writing experience."
@@ -259,11 +267,11 @@ function createSampleJob(input: {
       input.score >= 85 ? [] : input.gapsZh.map((gap) => `潜在风险：${gap}`),
     positive_signals_en: [
       "JD mentions analytics, reporting, and stakeholder communication.",
-      `Location aligns with target region: ${input.region}.`
+      "Role requirements are concrete enough to tailor resume keywords."
     ],
     positive_signals_zh: [
       "JD 提到分析、报告和业务沟通。",
-      `地点符合目标地区：${input.regionZh}。`
+      "岗位要求足够具体，可用于优化简历关键词。"
     ],
     assumptions_en: [
       "Assumes the candidate can provide project examples for SQL and dashboard work."
@@ -285,6 +293,21 @@ function createSampleJob(input: {
       `围绕${input.roleTypeZh}结果和可量化业务影响改写项目经历。`,
       "把 SQL、Python、Excel 和仪表盘关键词放到简历前半部分。"
     ],
+    resume_tailoring_draft: {
+      summary_en: `Analytical early-career candidate with experience in ${input.skills.slice(0, 3).join(", ")} and a focus on ${input.roleType} outcomes.`,
+      bullets_en: [
+        `Built analysis workflows using ${input.tools.slice(0, 2).join(" and ")} to translate data into stakeholder-ready recommendations.`,
+        `Framed project evidence around ${input.roleType} decisions, measurable outcomes, and communication with business users.`
+      ],
+      keywords: [
+        ...input.skills.slice(0, 4),
+        ...input.tools.slice(0, 2),
+        input.roleType
+      ],
+      explanation_zh: `突出${input.roleTypeZh}、数据分析和业务沟通，能更贴近该岗位的筛选关键词。`,
+      risk_notes_zh:
+        input.score >= 85 ? [] : input.gapsZh.map((gap) => `避免夸大：${gap}`)
+    },
     skills_to_improve_en: input.missingSkills,
     skills_to_improve_zh: input.missingSkillsZh.map((skill) => `补充学习${skill}`),
     matched_skills: input.skills.slice(0, 4),
@@ -313,6 +336,10 @@ function createSampleJob(input: {
     application_channel: "Company website",
     contact_person: "",
     interview_date: input.status === "Interview" ? "2026-07-01T10:00" : "",
+    follow_up_date: followUpDate,
+    action_stage: actionStage,
+    tailoring_status: "draft_ready",
+    next_step_note: getSampleNextStepNote(actionStage),
     follow_up_notes:
       input.status === "Interview"
         ? "Prepare analytics project walkthrough and role motivation."
@@ -339,11 +366,51 @@ function createSampleJob(input: {
   };
 }
 
-function createBreakdown(
-  score: number,
-  region: string,
-  regionZh: string
-): MatchScoreBreakdown {
+function getSampleActionStage(
+  status: JobRecord["application_status"],
+  nextAction: RecommendedNextAction["action"],
+  score: number
+): ActionStage {
+  if (status === "Applied" || status === "Interview") {
+    return "follow_up";
+  }
+
+  if (nextAction === "Apply now" && score >= 75) {
+    return "ready_to_apply";
+  }
+
+  if (nextAction === "Tailor resume first") {
+    return "tailor_resume";
+  }
+
+  if (nextAction === "Save for later" || nextAction === "Skip") {
+    return "parked";
+  }
+
+  return "needs_review";
+}
+
+function getSampleNextStepNote(stage: ActionStage) {
+  if (stage === "ready_to_apply") {
+    return "Review final resume keywords and submit today.";
+  }
+
+  if (stage === "tailor_resume") {
+    return "Draft a targeted summary and 2-3 role-specific bullets.";
+  }
+
+  if (stage === "follow_up") {
+    return "Send a concise follow-up or prepare the interview note.";
+  }
+
+  if (stage === "parked") {
+    return "Keep as lower priority unless the fit changes.";
+  }
+
+  return "Review fit evidence and decide whether to apply.";
+}
+
+function createBreakdown(score: number): MatchScoreBreakdown {
   return {
     education_fit: dimension(
       score,
@@ -374,24 +441,8 @@ function createBreakdown(
       "Role is suitable for an early-career candidate.",
       "岗位适合早期职业候选人。",
       "JD uses junior, internship, associate, or 0-2 years language.",
-      "Direct local experience may still be limited.",
-      "本地直接经验可能仍然有限。"
-    ),
-    career_direction_fit: dimension(
-      score,
-      "Role aligns with analytics, consulting, risk, product, or FinTech direction.",
-      "岗位方向与分析、咨询、风险、产品或金融科技匹配。",
-      "JD responsibilities map to analytics and business decision support.",
-      "No major direction mismatch.",
-      "暂无明显职业方向错配。"
-    ),
-    location_fit: dimension(
-      score - 5,
-      `Location is relevant to ${region}.`,
-      `地点符合${regionZh}求职方向。`,
-      `JD location is ${region}.`,
-      "Work rights or sponsorship details are not fully stated.",
-      "工作权利或签证支持信息不够明确。"
+      "Direct role-specific internship experience may still be limited.",
+      "与岗位直接相关的实习经验可能仍然有限。"
     )
   };
 }

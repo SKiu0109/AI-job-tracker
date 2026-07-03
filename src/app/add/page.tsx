@@ -1,4 +1,4 @@
-import { AddJobForm } from "@/components/jobs/add-job-form";
+import { ImportInboxPage } from "@/components/jobs/import-inbox-page";
 import { SAMPLE_JD, SAMPLE_SOURCE_URL } from "@/lib/sample-jd";
 
 type AddJobPageProps = {
@@ -12,7 +12,7 @@ export default async function AddJobPage({ searchParams }: AddJobPageProps) {
   const shouldUseSample = params?.sample === "1";
 
   return (
-    <AddJobForm
+    <ImportInboxPage
       initialRawJd={shouldUseSample ? SAMPLE_JD : ""}
       initialSourceUrl={shouldUseSample ? SAMPLE_SOURCE_URL : ""}
       samplePrefilled={shouldUseSample}

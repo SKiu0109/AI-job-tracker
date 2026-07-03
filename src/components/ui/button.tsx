@@ -8,11 +8,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants = {
   primary:
-    "border-accent bg-accent text-white hover:border-accent-hover hover:bg-accent-hover active:bg-accent-strong active:border-accent-strong",
+    "border-app-accent bg-app-accent text-white shadow-app-accent hover:border-app-accent-hover hover:bg-app-accent-hover hover:shadow-app-accent-hover active:border-app-accent-hover active:bg-app-accent-hover",
   secondary:
-    "border bg-tertiary text-primary hover:border-strong hover:bg-hover",
+    "border-app-border-soft bg-app-surface-solid text-app-text-primary shadow-app-card hover:border-app-border hover:bg-app-surface-hover hover:shadow-app-card",
   ghost:
-    "border-transparent bg-transparent text-secondary hover:bg-hover hover:text-primary"
+    "border-transparent bg-transparent text-app-text-secondary hover:bg-app-surface-hover hover:text-app-text-primary"
 };
 
 export function Button({
@@ -25,7 +25,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center rounded-app border px-4 py-2 text-sm font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-10 items-center justify-center rounded-sm border px-4 py-2 text-sm font-semibold backdrop-blur-xl transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-[var(--app-motion-standard)] active:scale-[0.992] disabled:cursor-not-allowed disabled:opacity-60",
         variants[variant],
         className
       )}
@@ -52,7 +52,7 @@ export function ButtonLink({
       href={href}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center rounded-app border px-4 py-2 text-sm font-semibold transition duration-200",
+        "inline-flex min-h-10 items-center justify-center rounded-sm border px-4 py-2 text-sm font-semibold backdrop-blur-xl transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-[var(--app-motion-standard)] active:scale-[0.992]",
         variants[variant],
         className
       )}

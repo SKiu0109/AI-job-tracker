@@ -44,9 +44,7 @@ export const MATCH_SCORE_DIMENSIONS = [
   "education_fit",
   "technical_skills_fit",
   "business_communication_fit",
-  "experience_fit",
-  "career_direction_fit",
-  "location_fit"
+  "experience_fit"
 ] as const;
 
 export type MatchScoreDimensionKey = (typeof MATCH_SCORE_DIMENSIONS)[number];
@@ -59,6 +57,40 @@ export const WORK_MODES = [
 ] as const;
 
 export type WorkMode = (typeof WORK_MODES)[number];
+
+export const ACTION_STAGES = [
+  "needs_review",
+  "tailor_resume",
+  "ready_to_apply",
+  "follow_up",
+  "parked"
+] as const;
+
+export type ActionStage = (typeof ACTION_STAGES)[number];
+
+export const TAILORING_STATUSES = [
+  "not_started",
+  "draft_ready",
+  "reviewed"
+] as const;
+
+export type TailoringStatus = (typeof TAILORING_STATUSES)[number];
+
+export type ResumeTailoringDraft = {
+  summary_en: string;
+  bullets_en: string[];
+  keywords: string[];
+  explanation_zh: string;
+  risk_notes_zh: string[];
+};
+
+export type ResumeTailoringVersion = {
+  id: string;
+  created_at: string;
+  label: string;
+  draft: ResumeTailoringDraft;
+  reviewed: boolean;
+};
 
 export type ScoreDimension = {
   score: number;
@@ -143,6 +175,7 @@ export type JobAnalysis = {
   ai_summary_en: string;
   ai_summary_zh: string;
   resume_keywords: string[];
+  resume_tailoring_draft?: ResumeTailoringDraft;
 };
 
 export type StatusTimelineItem = {
@@ -159,11 +192,18 @@ export type JobRecord = JobAnalysis & {
   application_channel?: string;
   contact_person?: string;
   interview_date?: string;
+  follow_up_date?: string;
+  next_step_note?: string;
+  action_stage: ActionStage;
+  tailoring_status: TailoringStatus;
   follow_up_notes?: string;
   status_history: StatusTimelineItem[];
+  company_domain?: string;
+  company_logo_url?: string;
   source_url: string;
   raw_jd: string;
   notes: string;
+  resume_tailoring_versions?: ResumeTailoringVersion[];
   created_at: string;
   updated_at: string;
 };

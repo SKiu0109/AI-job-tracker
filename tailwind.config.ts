@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -39,13 +40,52 @@ const config: Config = {
         "score-low-border": "rgba(204, 59, 59, 0.2)",
         success: "#1AAE4A",
         warn: "#DD8A00",
-        danger: "#CC3B3B"
+        danger: "#CC3B3B",
+        // Internal app foundation tokens - additive, used by new primitives.
+        "app-bg": "var(--app-bg)",
+        "app-surface": "var(--app-surface)",
+        "app-surface-subtle": "var(--app-surface-subtle)",
+        "app-surface-muted": "var(--app-surface-muted)",
+        "app-surface-hover": "var(--app-surface-hover)",
+        "app-surface-solid": "var(--app-surface-solid)",
+        "app-surface-raised": "var(--app-surface-raised)",
+        "app-chrome": "var(--app-chrome)",
+        "app-text-primary": "var(--app-text-primary)",
+        "app-text-secondary": "var(--app-text-secondary)",
+        "app-text-tertiary": "var(--app-text-tertiary)",
+        "app-border": "var(--app-border)",
+        "app-border-soft": "var(--app-border-soft)",
+        "app-border-strong": "var(--app-border-strong)",
+        "app-accent": "var(--app-accent)",
+        "app-accent-hover": "var(--app-accent-hover)",
+        "app-accent-soft": "var(--app-accent-soft)",
+        "app-accent-purple": "var(--app-accent-purple)",
+        "app-success": "var(--app-success)",
+        "app-success-soft": "var(--app-success-soft)",
+        "app-success-border": "var(--app-success-border)",
+        "app-warning": "var(--app-warning)",
+        "app-warning-soft": "var(--app-warning-soft)",
+        "app-warning-border": "var(--app-warning-border)",
+        "app-danger": "var(--app-danger)",
+        "app-danger-soft": "var(--app-danger-soft)",
+        "app-danger-border": "var(--app-danger-border)",
+        "app-info": "var(--app-info)",
+        "app-info-soft": "var(--app-info-soft)",
+        "app-info-border": "var(--app-info-border)",
+        "app-paper": "var(--app-paper)",
+        "app-paper-muted": "var(--app-paper-muted)",
+        "app-overlay": "var(--app-overlay)"
       },
       borderRadius: {
-        app: "0.5rem",
-        panel: "0.75rem",
-        lg: "1rem",
-        xl: "1.25rem"
+        // Apple-inspired radius scale: softer containers, still compact controls.
+        xs: "0.375rem",      // 6px — tiny badges and inline affordances
+        sm: "0.625rem",      // 10px — buttons, inputs, segmented controls
+        md: "0.75rem",       // 12px — small tiles and nested surfaces
+        app: "0.75rem",      // 12px — existing app chip/control shorthand
+        lg: "1rem",          // 16px — standard cards and panels
+        xl: "1.25rem",       // 20px — popovers and featured panels
+        "2xl": "1.5rem",     // 24px — sheets and large containers
+        full: "9999px",      // pill badges, tags
       },
       boxShadow: {
         xs: "0 1px 2px rgba(0,0,0,0.03)",
@@ -53,8 +93,15 @@ const config: Config = {
         md: "0 4px 12px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.03)",
         lg: "0 10px 28px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.03)",
         panel: "0 18px 50px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)",
-        // Whisper border — Notion-style ultra-thin ring shadow
-        ring: "0 0 0 1px rgba(0,0,0,0.07)"
+        // App panel shadows backed by CSS variables
+        border: "var(--app-shadow-border)",
+        "app-card": "var(--app-shadow-card)",
+        "app-panel": "var(--app-shadow-elevated)",
+        "app-elevated": "var(--app-shadow-elevated)",
+        "app-floating": "var(--app-shadow-floating)",
+        "app-focus": "var(--app-shadow-focus)",
+        "app-accent": "var(--app-shadow-accent)",
+        "app-accent-hover": "var(--app-shadow-accent-hover)"
       }
     }
   },

@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "AI Job Tracker",
-    short_name: "Job Tracker",
+    name: "Offerwise",
+    short_name: "Offerwise",
     description:
-      "Bilingual AI job search analytics platform for Chinese-speaking international students.",
+      "Multilingual job search workspace for tracking roles, decisions, resumes, and follow-ups.",
     start_url: "/",
     scope: "/",
     display: "standalone",

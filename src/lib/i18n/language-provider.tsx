@@ -47,6 +47,7 @@ export function LanguageProvider({
 
   const setLanguage = (nextLanguage: Language) => {
     setLanguageState(nextLanguage);
+    document.documentElement.lang = nextLanguage === "zh" ? "zh-CN" : "en";
     window.localStorage.setItem(STORAGE_KEY, nextLanguage);
     document.cookie = `${LANGUAGE_COOKIE_KEY}=${nextLanguage}; path=/; max-age=${LANGUAGE_COOKIE_MAX_AGE}; samesite=lax`;
   };

@@ -1,4 +1,9 @@
+import { createHash } from "crypto";
 import { buildJobAnalysisMessages } from "@/lib/ai/job-analysis-prompt";
+import {
+  buildResumeDraftPolishMessages,
+  type ResumeDraftPolishInput
+} from "@/lib/ai/resume-draft-polish-prompt";
 import { buildResumeProfileMessages } from "@/lib/ai/resume-profile-prompt";
 import { normalizeCandidateProfile } from "@/lib/candidate-profile";
 import { clampScore } from "@/lib/utils";
@@ -17,6 +22,7 @@ import {
   PRIORITY_LEVELS,
   PriorityLevel,
   RecommendedNextAction,
+  ResumeTailoringDraft,
   ResumeProfileAnalysis,
   ScoreDimension,
   WORK_MODES,
@@ -27,11 +33,13 @@ type AnalyzeJobInput = {
   rawJd: string;
   sourceUrl?: string;
   candidateProfile?: string;
+  language?: "en" | "zh";
 };
 
 type AnalyzeResumeProfileInput = {
   resumeText: string;
   currentProfile?: CandidateProfile;
+  language?: "en" | "zh";
 };
 
 export interface AiProvider {
@@ -39,6 +47,9 @@ export interface AiProvider {
   analyzeResumeProfile(
     input: AnalyzeResumeProfileInput
   ): Promise<ResumeProfileAnalysis>;
+  polishResumeDraft(
+    input: ResumeDraftPolishInput
+  ): Promise<ResumeTailoringDraft>;
 }
 
 type ProviderConfig = {
@@ -50,9 +61,13 @@ type ProviderConfig = {
   providerName: string;
 };
 
-export function getAiProviderConfigStatus() {
+type ProviderConfigOptions = {
+  useAdminConfig?: boolean;
+};
+
+export function getAiProviderConfigStatus(options: ProviderConfigOptions = {}) {
   try {
-    const config = getProviderConfig();
+    const config = getProviderConfig(options);
     return {
       configured: isConfiguredApiKey(config.apiKey),
       provider: config.providerName,
@@ -61,35 +76,35 @@ export function getAiProviderConfigStatus() {
   } catch {
     return {
       configured: false,
-      provider: getProviderName()
+      provider: getProviderName(options.useAdminConfig)
     };
   }
 }
 
-export function getAiProvider(): AiProvider {
-  return new ChatCompletionsJobAnalysisProvider(getProviderConfig());
+export function getAiProvider(options: ProviderConfigOptions = {}): AiProvider {
+  return new ChatCompletionsJobAnalysisProvider(getProviderConfig(options));
 }
 
-function getProviderConfig(): ProviderConfig {
-  const provider = getProviderName();
+function getProviderConfig(options: ProviderConfigOptions = {}): ProviderConfig {
+  const provider = getProviderName(options.useAdminConfig);
 
   switch (provider.toLowerCase()) {
     case "openai":
       return {
-        apiKey: getApiKey("openai"),
-        apiKeyEnvName: getApiKeyEnvName("openai"),
+        apiKey: getApiKey("openai", options.useAdminConfig),
+        apiKeyEnvName: getApiKeyEnvName("openai", options.useAdminConfig),
         endpoint: "https://api.openai.com/v1/chat/completions",
         maxTokensField: "max_completion_tokens",
-        model: getModel("gpt-5-mini"),
+        model: getModel("gpt-5-mini", options.useAdminConfig),
         providerName: "OpenAI"
       };
     case "deepseek":
       return {
-        apiKey: getApiKey("deepseek"),
-        apiKeyEnvName: getApiKeyEnvName("deepseek"),
+        apiKey: getApiKey("deepseek", options.useAdminConfig),
+        apiKeyEnvName: getApiKeyEnvName("deepseek", options.useAdminConfig),
         endpoint: "https://api.deepseek.com/chat/completions",
         maxTokensField: "max_tokens",
-        model: getModel("deepseek-v4-flash"),
+        model: getModel("deepseek-v4-flash", options.useAdminConfig),
         providerName: "DeepSeek"
       };
     default:
@@ -97,26 +112,47 @@ function getProviderConfig(): ProviderConfig {
   }
 }
 
-function getProviderName() {
-  return process.env.AI_PROVIDER || "openai";
+function getProviderName(useAdminConfig?: boolean) {
+  return (
+    (useAdminConfig ? process.env.ADMIN_AI_PROVIDER : undefined) ||
+    process.env.AI_PROVIDER ||
+    "openai"
+  );
 }
 
-function getModel(defaultModel: string) {
-  return process.env.AI_MODEL || defaultModel;
+function getModel(defaultModel: string, useAdminConfig?: boolean) {
+  return (
+    (useAdminConfig ? process.env.ADMIN_AI_MODEL : undefined) ||
+    process.env.AI_MODEL ||
+    defaultModel
+  );
 }
 
-function getApiKey(provider: "openai" | "deepseek") {
+function getApiKey(provider: "openai" | "deepseek", useAdminConfig?: boolean) {
   if (provider === "openai") {
-    return process.env.OPENAI_API_KEY;
+    return (
+      (useAdminConfig ? process.env.ADMIN_OPENAI_API_KEY : undefined) ||
+      process.env.OPENAI_API_KEY
+    );
   }
-  return process.env.DEEPSEEK_API_KEY;
+  return (
+    (useAdminConfig ? process.env.ADMIN_DEEPSEEK_API_KEY : undefined) ||
+    process.env.DEEPSEEK_API_KEY
+  );
 }
 
-function getApiKeyEnvName(provider: "openai" | "deepseek") {
+function getApiKeyEnvName(
+  provider: "openai" | "deepseek",
+  useAdminConfig?: boolean
+) {
   if (provider === "openai") {
-    return "OPENAI_API_KEY";
+    return useAdminConfig && process.env.ADMIN_OPENAI_API_KEY
+      ? "ADMIN_OPENAI_API_KEY"
+      : "OPENAI_API_KEY";
   }
-  return "DEEPSEEK_API_KEY";
+  return useAdminConfig && process.env.ADMIN_DEEPSEEK_API_KEY
+    ? "ADMIN_DEEPSEEK_API_KEY"
+    : "DEEPSEEK_API_KEY";
 }
 
 /** Collect full content from SSE streaming response */
@@ -226,6 +262,45 @@ class ChatCompletionsJobAnalysisProvider implements AiProvider {
     if (!content) throw new Error("AI returned empty content");
     return normalizeResumeProfileAnalysis(parseJsonContent(content));
   }
+
+  async polishResumeDraft(
+    input: ResumeDraftPolishInput
+  ): Promise<ResumeTailoringDraft> {
+    if (!isConfiguredApiKey(this.config.apiKey)) {
+      throw new Error(`${this.config.apiKeyEnvName} is not configured.`);
+    }
+
+    const messages = buildResumeDraftPolishMessages(input);
+    const body = {
+      model: this.config.model,
+      messages,
+      stream: true,
+      [this.config.maxTokensField]: 1600
+    };
+
+    const response = await fetch(this.config.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const err = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+      throw new Error(
+        err.error?.message || `${this.config.providerName} returned ${response.status}`
+      );
+    }
+
+    const content = await collectStreamContent(response);
+    if (!content) throw new Error("AI returned empty content");
+    return normalizeResumeTailoringDraftResponse(
+      parseJsonContent(content),
+      input.draft
+    );
+  }
 }
 
 function isConfiguredApiKey(apiKey: string | undefined) {
@@ -252,21 +327,24 @@ function parseJsonContent(content: string) {
   }
 
   // Try direct parse
-  try {
-    return JSON.parse(trimmed);
-  } catch (_firstError) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (_firstError) {
     // Attempt repairs common in LLM JSON output
     try {
       return JSON.parse(repairLlmJson(trimmed));
     } catch {
-      // Log the raw content for debugging, then throw original error
+      const fingerprint = createHash("sha256")
+        .update(trimmed)
+        .digest("hex")
+        .slice(0, 12);
+
       console.error(
-        "[parseJsonContent] Failed to parse AI response. First 500 chars:",
-        trimmed.slice(0, 500)
-      );
-      console.error(
-        "[parseJsonContent] Last 300 chars:",
-        trimmed.slice(-300)
+        "[parseJsonContent] Failed to parse AI response.",
+        {
+          contentLength: trimmed.length,
+          fingerprint
+        }
       );
       throw new Error(
         `AI returned invalid JSON at position approximately ${Math.max(0, _firstError instanceof SyntaxError ? parseInt(String(_firstError.message).match(/position (\d+)/)?.[1] ?? "0") : 0)}: ${_firstError instanceof Error ? _firstError.message : "Unknown parse error"}`
@@ -445,6 +523,34 @@ function normalizeResumeProfileAnalysis(value: Partial<ResumeProfileAnalysis>): 
   };
 }
 
+function normalizeResumeTailoringDraftResponse(
+  value: unknown,
+  fallback: ResumeTailoringDraft
+): ResumeTailoringDraft {
+  const source = isRecord(value) && isRecord(value.draft) ? value.draft : value;
+  const record = isRecord(source) ? source : {};
+
+  return {
+    summary_en: truncateText(
+      asString(record.summary_en, fallback.summary_en),
+      1200
+    ),
+    bullets_en: asStringArray(record.bullets_en, fallback.bullets_en)
+      .map((item) => truncateText(item, 360))
+      .slice(0, 4),
+    keywords: asStringArray(record.keywords, fallback.keywords)
+      .map((item) => truncateText(item, 80))
+      .slice(0, 12),
+    explanation_zh: truncateText(
+      asString(record.explanation_zh, fallback.explanation_zh),
+      1000
+    ),
+    risk_notes_zh: asStringArray(record.risk_notes_zh, fallback.risk_notes_zh)
+      .map((item) => truncateText(item, 260))
+      .slice(0, 4)
+  };
+}
+
 function asString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
@@ -452,6 +558,10 @@ function asString(value: unknown, fallback: string) {
 function asStringArray(value: unknown, fallback: string[] = []) {
   if (!Array.isArray(value)) return fallback;
   return value.map((item) => (typeof item === "string" ? item.trim() : String(item))).filter(Boolean);
+}
+
+function truncateText(value: string, maxLength: number) {
+  return value.length > maxLength ? value.slice(0, maxLength).trim() : value;
 }
 
 function asWorkMode(value: unknown): WorkMode {

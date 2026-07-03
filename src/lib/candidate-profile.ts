@@ -1,6 +1,6 @@
 import { CandidateProfile, CandidateProfileV1 } from "@/types/job";
 
-/** Default example profile — used only when user explicitly loads demo or resets */
+/** Default example profile — used only for demo JD analysis fallback */
 export const DEFAULT_CANDIDATE_PROFILE: CandidateProfile = {
   target_regions: "Australia, Singapore, China",
   target_roles:

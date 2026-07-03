@@ -10,10 +10,10 @@ function resolveRecommendationTone(recommendation: string): RecommendationTone {
 }
 
 const TONE_CLASSES: Record<RecommendationTone, string> = {
-  green: "border-score-high-border bg-score-high-bg text-score-high",
-  blue:  "border-accent/15 bg-accent-subtle/40 text-accent",
-  amber: "border-score-mid-border bg-score-mid-bg text-score-mid",
-  red:   "border-score-low-border bg-score-low-bg text-score-low",
+  green: "border-app-success-border bg-app-success-soft text-app-success",
+  blue: "border-app-info-border bg-app-info-soft text-app-info",
+  amber: "border-app-warning-border bg-app-warning-soft text-app-warning",
+  red: "border-app-danger-border bg-app-danger-soft text-app-danger",
 };
 
 export function ScoreBadge({

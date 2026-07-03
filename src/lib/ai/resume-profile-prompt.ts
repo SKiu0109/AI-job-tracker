@@ -7,10 +7,13 @@ import type { CandidateProfile } from "@/types/job";
 export function buildResumeProfileMessages(input: {
   resumeText: string;
   currentProfile?: CandidateProfile;
+  language?: "en" | "zh";
 }) {
   const currentProfile = formatCandidateProfile(
     input.currentProfile || DEFAULT_CANDIDATE_PROFILE
   );
+  const outputLanguage =
+    input.language === "zh" ? "Simplified Chinese" : "English";
 
   const schema = `{
   "candidate_profile": {
@@ -44,11 +47,15 @@ export function buildResumeProfileMessages(input: {
         "Analyze the uploaded resume text and generate a candidate profile for an AI job search analytics app.",
         "The user is likely a Chinese-speaking international student applying for English-speaking roles in Australia, Singapore, and China.",
         "Use the resume as the primary evidence. Do not invent degrees, employers, skills, tools, work rights, or industries.",
+        "Do not copy examples, default profile details, or unstated saved-profile details into the result unless the resume or current saved profile clearly supports them.",
+        "Never add FinTech, finance, analytics, or any other major/academic direction unless it is explicitly present in the resume text or already present in the current saved profile.",
         "If a preference field is not clear from the resume, keep the current saved profile value and mention the uncertainty in missing_or_unclear_information.",
         "Keep each candidate_profile field concise but useful for job matching.",
-        "For education_background: include degree level, major, field of study, and academic direction (e.g. \"Bachelor in Statistics; Master in Business Analytics and FinTech\").",
+        "For education_background: include only the degree level, major, field of study, and academic direction directly supported by the uploaded resume.",
+        "For education_background, do not preserve a saved major or academic direction when the uploaded resume does not support it.",
         "For technical_skills: include both technical skills AND tools (e.g. SQL, Python, Excel, Power BI, Tableau). Do not split them.",
-        "Keep technical skills, target roles, and resume-relevant keywords mostly in English.",
+        `Write candidate_profile, extracted_strengths, and missing_or_unclear_information in ${outputLanguage}, matching the user's selected UI language.`,
+        "Keep proper nouns, tool names, programming languages, credentials, company names, and role titles in their standard form when translating would reduce clarity.",
         "Provide profile summaries in both English and Simplified Chinese.",
         "Confidence must be High, Medium, or Low depending on how complete and clear the resume text is.",
         "",

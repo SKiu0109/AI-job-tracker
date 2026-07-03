@@ -2,13 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { AppGlare } from "@/components/ui/app-glare";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { CompanyLogo } from "@/components/jobs/company-logo";
 import { ScoreBadge } from "@/components/jobs/score-badge";
 import { LanguageDropdown } from "@/components/layout/language-toggle";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { trackProductEvent } from "@/lib/product/analytics";
 import { SAMPLE_JOBS } from "@/lib/sample-jobs";
-import { saveJobs } from "@/lib/storage/jobs";
+import { loadJobs, prependMissingJobs, saveJobs } from "@/lib/storage/jobs";
 import { FLOAT_ANIMATION_DELAY_MS } from "@/lib/constants";
 
 type PreviewJob = {
@@ -137,7 +139,7 @@ function AnimatedScoreBar({ score }: { score: number }) {
           style={{ width: targetWidth }}
         />
       </div>
-      <span className="text-[11px] font-semibold text-primary">{score}%</span>
+      <span className="text-[11px] font-semibold text-app-text-primary">{score}%</span>
     </div>
   );
 }
@@ -146,15 +148,27 @@ function EvidenceChip({ label, type }: { label: string; type: "match" | "risk" |
   const base = "rounded-full px-2 py-0.5 text-[10px] font-medium";
   if (type === "match") return <span className={`${base} border border-green-200 bg-green-50 text-green-700`}>{label}</span>;
   if (type === "risk") return <span className={`${base} border border-red-100 bg-red-50/60 text-red-600`}>{label}</span>;
-  return <span className={`${base} border border-accent/15 bg-accent-subtle/40 text-accent`}>{label}</span>;
+  return <span className={`${base} border border-app-accent/15 bg-app-accent-soft/40 text-app-accent`}>{label}</span>;
 }
 
 export default function LandingPage() {
   const router = useRouter();
   const { language, t } = useLanguage();
   const reduceMotion = usePrefersReducedMotion();
-  const hoverLift = reduceMotion ? "" : "hover:-translate-y-1 hover:shadow-md hover:shadow-black/[0.03]";
-  const btnLift = reduceMotion ? "" : "hover:-translate-y-0.5 hover:shadow-md";
+  const hoverLift = reduceMotion ? "" : "hover:-translate-y-px hover:shadow-app-card";
+  const btnLift = reduceMotion ? "" : "hover:-translate-y-px hover:shadow-app-card";
+  const landingNavItems = [
+    { href: "/workspace", label: t.landingNavTracker },
+    { href: "/add", label: t.landingNavImport },
+    { href: "/resume-hub", label: t.landingNavResume },
+    { href: "/follow-up", label: t.landingNavFollowUp }
+  ];
+  const landingFlowItems = [
+    t.landingFlowImport,
+    t.landingFlowTrack,
+    t.landingFlowTailor,
+    t.landingFlowFollowUp
+  ];
   const previewJobs: PreviewJobRich[] = SAMPLE_JOBS.slice(0, 4).map((job) => {
     const p = previewData[job.id] ?? { actionEn: job.recommended_next_action.action, actionZh: job.recommended_next_action.action, reasonEn: "", reasonZh: "" };
     const ev = previewEvidence[job.id] ?? { evidence: [], riskLabel: "" };
@@ -168,57 +182,98 @@ export default function LandingPage() {
   });
 
   const handleTryDemo = () => {
-    saveJobs(SAMPLE_JOBS);
+    saveJobs(prependMissingJobs(loadJobs(), SAMPLE_JOBS));
+    trackProductEvent("demo_sample_loaded", { jobCount: SAMPLE_JOBS.length, source: "landing" });
     if (typeof window !== "undefined") window.localStorage.setItem("from_demo_entry", "1");
     router.push("/workspace");
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="app-page-enter min-h-screen bg-app-bg">
       {/* ─── Nav ─── */}
-      <nav className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/80 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-app-border-soft bg-app-surface backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-xs font-bold text-white">P</span>
-              <span className="text-[15px] font-semibold text-primary">Pathwise</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-app bg-app-accent text-xs font-semibold text-white shadow-app-card">O</span>
+              <span className="text-[15px] font-semibold text-app-text-primary">Offerwise</span>
             </div>
-            <a href="/workspace" className="hidden text-[14px] font-medium text-secondary transition-colors hover:text-primary sm:inline-block">{t.jobList}</a>
+            <div className="hidden items-center gap-5 md:flex">
+              {landingNavItems.map((item) => (
+                <a
+                  className="text-[13px] font-medium text-app-text-secondary transition duration-300 ease-[var(--app-motion-standard)] hover:text-app-text-primary"
+                  href={item.href}
+                  key={item.href}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-4"><LanguageDropdown /></div>
+          <div className="flex items-center gap-3">
+            <LanguageDropdown />
+            <ButtonLink href="/login" variant="ghost" className="hidden min-h-9 px-3 text-[13px] sm:inline-flex">
+              {t.signIn}
+            </ButtonLink>
+          </div>
         </div>
       </nav>
 
       {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden" style={{ background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0,113,227,0.05) 0%, transparent 70%), #FAFAFA" }}>
+      <section
+        className="relative isolate overflow-hidden"
+        style={{
+          background:
+            "radial-gradient(ellipse 68% 48% at 50% -8%, rgba(10, 132, 255, 0.085) 0%, rgba(10, 132, 255, 0) 68%), linear-gradient(180deg, var(--app-surface-raised) 0%, var(--app-surface-muted) 100%)"
+        }}
+      >
         <div className="mx-auto max-w-7xl px-6 pb-24 pt-20 sm:pt-28 lg:pt-36">
           <div className="grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:items-center">
             <FadeSection>
-              <h1 className="text-4xl font-semibold tracking-tight text-primary sm:text-5xl lg:text-[52px] lg:leading-[1.06]">{t.landingHeroTitle}</h1>
-              <p className="mt-5 max-w-md text-[16px] leading-relaxed text-secondary">{t.landingHeroSubtitle}</p>
+              <h1 className="max-w-xl text-4xl font-semibold tracking-normal text-app-text-primary sm:text-5xl lg:text-[52px] lg:leading-[1.06]">{t.landingHeroTitle}</h1>
+              <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-app-text-secondary">{t.landingHeroSubtitle}</p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button onClick={handleTryDemo} className={`min-h-12 px-7 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingTryDemo}</Button>
-                <ButtonLink href="#preview" variant="secondary" className={`min-h-12 px-7 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingViewSample}</ButtonLink>
+                <AppGlare className="rounded-app">
+                  <ButtonLink href="/login" className={`min-h-12 px-7 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingTryDemo}</ButtonLink>
+                </AppGlare>
+                <AppGlare className="rounded-app">
+                  <Button onClick={handleTryDemo} variant="secondary" className={`min-h-12 px-7 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingViewSample}</Button>
+                </AppGlare>
               </div>
-              <p className="mt-5 text-[13px] text-secondary/45">{t.landingTrustMicrocopy}</p>
+              <p className="mt-5 text-[13px] text-app-text-secondary/45">{t.landingTrustMicrocopy}</p>
+              <div className="mt-6 flex max-w-xl flex-wrap items-center gap-2">
+                {landingFlowItems.map((item, index) => (
+                  <div className="flex items-center" key={item}>
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                        index === 0
+                          ? "border-app-accent/15 bg-app-accent-soft/45 text-app-accent"
+                          : "border-app-border-soft bg-app-surface text-app-text-secondary/70"
+                      }`}
+                    >
+                      {item}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </FadeSection>
-            <MockupPanel />
+            <MockupPanel language={language} />
           </div>
         </div>
       </section>
 
       {/* ─── How it works ─── */}
-      <section className="border-t border-black/[0.04] bg-white py-24 lg:py-32">
+      <section className="border-t border-app-border-soft bg-app-surface py-24 backdrop-blur-xl lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <FadeSection className="text-center">
-            <h2 className="text-[28px] font-semibold tracking-tight text-primary">{t.landingHowTitle}</h2>
-            <p className="mt-3 text-[15px] text-secondary">{t.landingHowSubtitle}</p>
+            <h2 className="text-[28px] font-semibold tracking-normal text-app-text-primary">{t.landingHowTitle}</h2>
+            <p className="mt-3 text-[15px] text-app-text-secondary">{t.landingHowSubtitle}</p>
           </FadeSection>
-          <div className="mt-16 grid gap-8 sm:grid-cols-3">
+          <div className="app-stagger mt-16 grid gap-8 sm:grid-cols-3">
             {[
               { i: 1, title: t.landingHowStep1Title, body: t.landingHowStep1Body, preview: <StepPasteJD /> },
-              { i: 2, title: t.landingHowStep2Title, body: t.landingHowStep2Body, preview: <StepAnalysis /> },
-              { i: 3, title: t.landingHowStep3Title, body: t.landingHowStep3Body, preview: <StepDecision /> }
+              { i: 2, title: t.landingHowStep2Title, body: t.landingHowStep2Body, preview: <StepAnalysis language={language} /> },
+              { i: 3, title: t.landingHowStep3Title, body: t.landingHowStep3Body, preview: <StepDecision language={language} /> }
             ].map((step, idx) => (
               <FadeSection key={step.i} className="relative flex flex-col items-center text-center">
                 {/* Connector arrow on desktop */}
@@ -229,9 +284,9 @@ export default function LandingPage() {
                     </svg>
                   </div>
                 ) : null}
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-subtle text-[14px] font-medium text-accent">{step.i}</span>
-                <h3 className="mt-4 text-[16px] font-semibold text-primary">{step.title}</h3>
-                <p className="mt-1.5 max-w-[240px] text-[13px] leading-relaxed text-secondary">{step.body}</p>
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-app-accent-soft text-[14px] font-medium text-app-accent">{step.i}</span>
+                <h3 className="mt-4 text-[16px] font-semibold text-app-text-primary">{step.title}</h3>
+                <p className="mt-1.5 max-w-[240px] text-[13px] leading-relaxed text-app-text-secondary">{step.body}</p>
                 <div className="mt-5 w-full max-w-[220px]">{step.preview}</div>
               </FadeSection>
             ))}
@@ -240,27 +295,27 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Bilingual ─── */}
-      <section className="border-t border-black/[0.04] py-24 lg:py-32">
+      <section className="border-t border-app-border-soft py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-14 lg:grid-cols-2 lg:items-start">
             <FadeSection>
-              <h2 className="text-[28px] font-semibold tracking-tight text-primary">{t.landingBilingualTitle}</h2>
-              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-secondary">{t.landingBilingualBody}</p>
+              <h2 className="text-[28px] font-semibold tracking-normal text-app-text-primary">{t.landingBilingualTitle}</h2>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-app-text-secondary">{t.landingBilingualBody}</p>
             </FadeSection>
             <FadeSection>
-              <div className="rounded-2xl border border-black/[0.05] bg-white p-5 shadow-sm">
-                <div className="rounded-xl border border-accent/[0.06] bg-[#F7F9FC] p-4">
-                  <p className="text-[11px] font-medium text-accent/60 tracking-wide uppercase">English JD</p>
-                  <p className="mt-2 text-[14px] leading-relaxed text-primary">{t.landingBilingualExampleEn}</p>
+              <div className="rounded-xl border border-app-border-soft bg-app-surface p-5 shadow-app-panel backdrop-blur-xl">
+                <div className="rounded-lg border border-app-border-soft bg-app-surface p-4 ring-1 ring-app-accent/[0.04]">
+                  <p className="text-[11px] font-medium uppercase text-app-accent/60">{t.landingSourceLabel}</p>
+                  <p className="mt-2 text-[14px] leading-relaxed text-app-text-primary">{t.landingBilingualExampleEn}</p>
                 </div>
                 <div className="flex justify-center py-2">
-                  <svg width="24" height="32" viewBox="0 0 24 32" fill="none" className="text-accent/15">
+                  <svg width="24" height="32" viewBox="0 0 24 32" fill="none" className="text-app-accent/15">
                     <path d="M12 0v24M3 22l9 10 9-10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <div className="rounded-xl border border-black/[0.04] bg-[#FAFAFA] p-4">
-                  <p className="text-[11px] font-medium text-secondary/50 tracking-wide uppercase">Chinese Analysis</p>
-                  <p className="mt-2 text-[14px] leading-relaxed text-primary">{t.landingBilingualExampleZh}</p>
+                <div className="rounded-lg border border-app-border-soft bg-app-surface p-4">
+                  <p className="text-[11px] font-medium uppercase text-app-text-secondary/50">{t.landingBriefLabel}</p>
+                  <p className="mt-2 text-[14px] leading-relaxed text-app-text-primary">{t.landingBilingualExampleZh}</p>
                 </div>
               </div>
             </FadeSection>
@@ -269,23 +324,23 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Decision system + Preview ─── */}
-      <section id="preview" className="border-t border-black/[0.04] bg-white py-24 lg:py-32">
+      <section id="preview" className="border-t border-app-border-soft bg-app-surface py-24 backdrop-blur-xl lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <FadeSection className="text-center">
-            <h2 className="text-[28px] font-semibold tracking-tight text-primary">{t.landingDecisionTitle}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-secondary">{t.landingDecisionBody}</p>
+            <h2 className="text-[28px] font-semibold tracking-normal text-app-text-primary">{t.landingDecisionTitle}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-app-text-secondary">{t.landingDecisionBody}</p>
           </FadeSection>
-          <div className="mt-14 grid gap-5 sm:grid-cols-3">
+          <div className="app-stagger mt-14 grid gap-5 sm:grid-cols-3">
             {[
               { title: t.landingDecisionFit, body: t.landingDecisionFitBody, icon: <ChartIcon /> },
               { title: t.landingDecisionAction, body: t.landingDecisionActionBody, icon: <PrioritizeIcon /> },
               { title: t.landingDecisionPortfolio, body: t.landingDecisionPortfolioBody, icon: <PortfolioIcon /> }
             ].map((card) => (
               <FadeSection key={card.title}>
-                <div className={`group rounded-xl border border-black/[0.04] bg-white p-6 shadow-sm shadow-black/[0.01] transition-all duration-300 ${hoverLift} hover:border-black/[0.08]`}>
-                  <div className="mb-4 text-accent/40 transition-colors group-hover:text-accent/60">{card.icon}</div>
-                  <h3 className="text-[16px] font-semibold text-primary">{card.title}</h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-secondary">{card.body}</p>
+                <div className={`app-hover-lift group rounded-lg border border-app-border-soft bg-app-surface p-6 shadow-app-card backdrop-blur-xl ${hoverLift}`}>
+                  <div className="mb-4 text-app-accent/40 transition-colors duration-300 ease-[var(--app-motion-standard)] group-hover:text-app-accent/60">{card.icon}</div>
+                  <h3 className="text-[16px] font-semibold text-app-text-primary">{card.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-app-text-secondary">{card.body}</p>
                 </div>
               </FadeSection>
             ))}
@@ -293,27 +348,27 @@ export default function LandingPage() {
 
           {/* Workspace preview */}
           <FadeSection className="mt-14">
-            <div className="overflow-hidden rounded-xl border border-black/[0.05] bg-white shadow-md shadow-black/[0.02]">
+            <div className="overflow-hidden rounded-xl border border-app-border-soft bg-app-surface shadow-app-panel backdrop-blur-xl">
               <div className="flex items-center gap-2 border-b border-black/[0.04] px-5 py-3">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#FFBD2E]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28CA41]" />
-                <span className="ml-3 text-[12px] font-medium text-secondary/60">Workspace</span>
+                <span className="ml-3 text-[12px] font-medium text-app-text-secondary/60">{t.landingPreviewLabel}</span>
               </div>
               {/* Toolbar */}
               <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.03] px-5 py-2.5">
-                <span className="rounded-full border border-accent/15 bg-accent-subtle/40 px-2.5 py-1 text-[11px] font-medium text-accent">{t.landingFilterHighMatch}</span>
-                <span className="rounded-full border border-black/[0.05] bg-[#FAFAFA] px-2.5 py-1 text-[11px] text-secondary/60">{t.landingFilterNeedsTailoring}</span>
-                <span className="rounded-full border border-black/[0.05] bg-[#FAFAFA] px-2.5 py-1 text-[11px] text-secondary/60">{t.landingFilterSponsorshipRisk}</span>
-                <span className="ml-auto rounded-full border border-black/[0.05] bg-[#FAFAFA] px-2.5 py-1 text-[11px] text-secondary/50">{t.landingExportCsv}</span>
+                <span className="rounded-full border border-app-accent/15 bg-app-accent-soft/40 px-2.5 py-1 text-[11px] font-medium text-app-accent">{t.landingFilterHighMatch}</span>
+                <span className="rounded-full border border-app-border-soft bg-app-surface px-2.5 py-1 text-[11px] text-app-text-secondary/60">{t.landingFilterNeedsTailoring}</span>
+                <span className="rounded-full border border-app-border-soft bg-app-surface px-2.5 py-1 text-[11px] text-app-text-secondary/60">{t.landingFilterSponsorshipRisk}</span>
+                <span className="ml-auto rounded-full border border-app-border-soft bg-app-surface px-2.5 py-1 text-[11px] text-app-text-secondary/50">{t.landingExportCsv}</span>
               </div>
               {/* Job rows */}
               {previewJobs.map((job) => (
-                <div key={job.id} className="group border-b border-black/[0.02] px-5 py-3.5 last:border-0 transition-colors hover:bg-[#FAFAFA]">
+                <div key={job.id} className="group border-b border-black/[0.025] px-5 py-3.5 transition-colors duration-300 ease-[var(--app-motion-standard)] last:border-0 hover:bg-app-surface-hover">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <CompanyLogo company={job.company} size="sm" />
                       <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold text-primary">{language === "zh" ? job.titleZh : job.title}</p>
-                        <p className="truncate text-[12px] text-secondary">{job.company}</p>
+                        <p className="truncate text-[13px] font-semibold text-app-text-primary">{language === "zh" ? job.titleZh : job.title}</p>
+                        <p className="truncate text-[12px] text-app-text-secondary">{job.company}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -325,8 +380,8 @@ export default function LandingPage() {
                     {job.riskLabel ? (
                       <span className="rounded-full border border-red-100 bg-red-50/50 px-2 py-0.5 text-[11px] text-red-600/80">{job.riskLabel}</span>
                     ) : null}
-                    <span className="text-secondary/50">&rarr;</span>
-                    <span className="font-medium text-accent">{job.action}</span>
+                    <span className="text-app-text-secondary/50">&rarr;</span>
+                    <span className="font-medium text-app-accent">{job.action}</span>
                   </div>
                 </div>
               ))}
@@ -336,12 +391,12 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Trust ─── */}
-      <section className="border-t border-black/[0.04] py-24 lg:py-32">
+      <section className="border-t border-app-border-soft py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <FadeSection className="text-center">
-            <h2 className="text-[28px] font-semibold tracking-tight text-primary">{t.landingSafeTitle}</h2>
+            <h2 className="text-[28px] font-semibold tracking-normal text-app-text-primary">{t.landingSafeTitle}</h2>
           </FadeSection>
-          <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="app-stagger mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { title: t.landingSafeLocal, body: t.landingSafeLocalBody, icon: <UserIcon /> },
               { title: t.landingSafeCredits, body: t.landingSafeCreditsBody, icon: <LockIcon /> },
@@ -349,10 +404,10 @@ export default function LandingPage() {
               { title: t.landingSafeExport, body: t.landingSafeExportBody, icon: <DownloadIcon /> }
             ].map((card) => (
               <FadeSection key={card.title}>
-                <div className={`group rounded-xl border border-black/[0.04] bg-white p-6 shadow-sm shadow-black/[0.01] transition-all duration-300 ${hoverLift} hover:border-black/[0.08]`}>
-                  <div className="mb-5 text-accent/30 transition-colors group-hover:text-accent/50">{card.icon}</div>
-                  <h3 className="text-[16px] font-semibold text-primary">{card.title}</h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-secondary">{card.body}</p>
+                <div className={`app-hover-lift group rounded-lg border border-app-border-soft bg-app-surface p-6 shadow-app-card backdrop-blur-xl ${hoverLift}`}>
+                  <div className="mb-5 text-app-accent/30 transition-colors duration-300 ease-[var(--app-motion-standard)] group-hover:text-app-accent/50">{card.icon}</div>
+                  <h3 className="text-[16px] font-semibold text-app-text-primary">{card.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-app-text-secondary">{card.body}</p>
                 </div>
               </FadeSection>
             ))}
@@ -361,21 +416,26 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Final CTA ─── */}
-      <section className="border-t border-black/[0.04] bg-white py-24 lg:py-32">
+      <section className="border-t border-app-border-soft bg-app-surface py-24 backdrop-blur-xl lg:py-32">
         <FadeSection className="mx-auto max-w-2xl px-6 text-center">
-          <h2 className="text-[28px] font-semibold tracking-tight text-primary">{t.landingDemoTitle}</h2>
-          <p className="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-secondary">{t.landingDemoBody}</p>
-          <div className="mt-8">
-            <Button onClick={handleTryDemo} className={`min-h-12 px-8 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingLaunchDemo}</Button>
+          <h2 className="text-[28px] font-semibold tracking-normal text-app-text-primary">{t.landingDemoTitle}</h2>
+          <p className="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-app-text-secondary">{t.landingDemoBody}</p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <AppGlare className="rounded-app">
+              <ButtonLink href="/login" className={`min-h-12 px-8 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingLaunchDemo}</ButtonLink>
+            </AppGlare>
+            <AppGlare className="rounded-app">
+              <Button onClick={handleTryDemo} variant="secondary" className={`min-h-12 px-8 text-[15px] font-medium transition-all duration-300 ${btnLift}`}>{t.landingViewSample}</Button>
+            </AppGlare>
           </div>
-          <p className="mt-4 text-[13px] text-secondary/35">{t.landingDemoNote}</p>
+          <p className="mt-4 text-[13px] text-app-text-secondary/35">{t.landingDemoNote}</p>
         </FadeSection>
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t border-black/[0.04] py-10">
-        <div className="mx-auto max-w-7xl px-6 text-center text-[12px] text-secondary/30">
-          Pathwise &middot; {language === "zh" ? "双语求职决策工作台" : "Bilingual job application decision workspace"}
+      <footer className="border-t border-app-border-soft py-10">
+        <div className="mx-auto max-w-7xl px-6 text-center text-[12px] text-app-text-secondary/30">
+          Offerwise &middot; {language === "zh" ? "多语言求职追踪工作台" : "Multilingual job search workspace"}
         </div>
       </footer>
     </div>
@@ -383,7 +443,7 @@ export default function LandingPage() {
 }
 
 /* ── Hero mockup: entrance once + continuous subtle float (respects reduced motion) ── */
-function MockupPanel() {
+function MockupPanel({ language }: { language: "en" | "zh" }) {
   const { ref, visible, reduceMotion } = useReveal();
   const [floatReady, setFloatReady] = useState(false);
 
@@ -412,7 +472,9 @@ function MockupPanel() {
     >
       {!reduceMotion ? <style>{`@keyframes mockup-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }`}</style> : null}
       <div style={!reduceMotion && floatReady ? { animation: "mockup-float 6s ease-in-out infinite" } : undefined}>
-        <AnalysisMockup />
+        <AppGlare className="block rounded-xl" disabled={reduceMotion}>
+          <AnalysisMockup language={language} />
+        </AppGlare>
       </div>
     </div>
   );
@@ -421,8 +483,8 @@ function MockupPanel() {
 /* ── Step previews ── */
 function StepPasteJD() {
   return (
-    <div className="rounded-lg border border-black/[0.05] bg-[#FAFAFA] p-3 text-left shadow-sm">
-      <div className="h-1.5 w-16 rounded-full bg-accent-subtle mb-2.5" />
+    <div className="rounded-lg border border-app-border-soft bg-app-surface p-3 text-left shadow-app-card">
+      <div className="h-1.5 w-16 rounded-full bg-app-accent-soft mb-2.5" />
       <div className="space-y-1.5">
         <div className="h-2 w-full rounded bg-black/[0.05]" />
         <div className="h-2 w-5/6 rounded bg-black/[0.05]" />
@@ -433,80 +495,113 @@ function StepPasteJD() {
   );
 }
 
-function StepAnalysis() {
+function StepAnalysis({ language }: { language: "en" | "zh" }) {
   return (
-    <div className="rounded-lg border border-black/[0.05] bg-white p-3 text-left shadow-sm">
+    <div className="rounded-lg border border-app-border-soft bg-app-surface p-3 text-left shadow-app-card">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-medium text-accent/60">Match</span>
+        <span className="text-[10px] font-medium text-app-accent/60">{language === "zh" ? "匹配度" : "Match"}</span>
         <span className="text-[10px] font-bold text-green-600">91%</span>
       </div>
       <div className="h-1 w-full rounded-full bg-black/[0.04] mb-2.5">
         <div className="h-full w-[91%] rounded-full bg-green-500" />
       </div>
       <div className="flex flex-wrap gap-1">
-        <span className="rounded px-1.5 py-0.5 text-[9px] bg-green-50 text-green-700 border border-green-100">SQL</span>
-        <span className="rounded px-1.5 py-0.5 text-[9px] bg-green-50 text-green-700 border border-green-100">Python</span>
-        <span className="rounded px-1.5 py-0.5 text-[9px] bg-red-50/60 text-red-600 border border-red-100">SAS</span>
+        <span className="rounded-app px-1.5 py-0.5 text-[9px] bg-green-50 text-green-700 border border-green-100">SQL</span>
+        <span className="rounded-app px-1.5 py-0.5 text-[9px] bg-green-50 text-green-700 border border-green-100">Python</span>
+        <span className="rounded-app px-1.5 py-0.5 text-[9px] bg-red-50/60 text-red-600 border border-red-100">SAS</span>
       </div>
     </div>
   );
 }
 
-function StepDecision() {
+function StepDecision({ language }: { language: "en" | "zh" }) {
   return (
-    <div className="rounded-lg border border-accent/[0.08] bg-[#F7F9FC] p-3 text-left shadow-sm">
+    <div className="rounded-lg border border-app-border-soft bg-app-surface p-3 text-left shadow-app-card ring-1 ring-app-accent/[0.04]">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium text-secondary/60">Next action</span>
-        <span className="text-[11px] font-semibold text-accent">Apply with tailored resume</span>
+        <span className="text-[10px] font-medium text-app-text-secondary/60">{language === "zh" ? "下一步" : "Next action"}</span>
+        <span className="text-[11px] font-semibold text-app-accent">{language === "zh" ? "用定制简历申请" : "Apply with tailored resume"}</span>
       </div>
-      <p className="mt-2 text-[10px] leading-relaxed text-secondary/50">Strong SQL and Python match. Highlight dashboarding and business impact.</p>
+      <p className="mt-2 text-[10px] leading-relaxed text-app-text-secondary/50">
+        {language === "zh"
+          ? "SQL 和 Python 匹配较强，简历应突出数据看板和业务影响。"
+          : "Strong SQL and Python match. Highlight dashboarding and business impact."}
+      </p>
     </div>
   );
 }
 
 /* ── Analysis mockup ── */
-function AnalysisMockup() {
+function AnalysisMockup({ language }: { language: "en" | "zh" }) {
+  const copy =
+    language === "zh"
+      ? {
+          action: "用定制简历申请",
+          company: "FinSight Analytics",
+          evidence: "匹配证据",
+          evidenceChips: ["SQL", "Python", "数据看板", "干系人报告"],
+          focus: "简历重点",
+          focusChips: ["数据看板", "报告自动化", "业务影响"],
+          next: "下一步",
+          risk: "风险",
+          riskBody: "未说明签证支持",
+          role: "初级数据分析师",
+          tracker: "工作台 - 初级数据分析师"
+        }
+      : {
+          action: "Apply with tailored resume",
+          company: "FinSight Analytics",
+          evidence: "Matched evidence",
+          evidenceChips: ["SQL", "Python", "Dashboarding", "Stakeholder reports"],
+          focus: "Resume focus",
+          focusChips: ["dashboarding", "reporting automation", "business impact"],
+          next: "Next action",
+          risk: "Risk",
+          riskBody: "Sponsorship not mentioned",
+          role: "Junior Data Analyst",
+          tracker: "Tracker - Junior Data Analyst"
+        };
+
   return (
-    <div className="rounded-2xl border border-black/[0.06] bg-white shadow-xl shadow-black/[0.03]">
+    <div className="rounded-xl border border-app-border-soft bg-app-surface shadow-app-floating backdrop-blur-xl">
       <div className="flex items-center gap-2 border-b border-black/[0.04] px-5 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#FFBD2E]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28CA41]" />
-        <span className="ml-3 text-[11px] font-medium text-secondary/40">Analysis — Junior Data Analyst</span>
+        <span className="ml-3 text-[11px] font-medium text-app-text-secondary/40">{copy.tracker}</span>
       </div>
       <div className="p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CompanyLogo company="FinSight Analytics" size="md" />
+            <CompanyLogo company={copy.company} size="md" />
             <div>
-              <p className="text-[15px] font-semibold text-primary">Junior Data Analyst</p>
-              <p className="text-[13px] text-secondary">FinSight Analytics</p>
+              <p className="text-[15px] font-semibold text-app-text-primary">{copy.role}</p>
+              <p className="text-[13px] text-app-text-secondary">{copy.company}</p>
             </div>
           </div>
           <ScoreBadge score={91} />
         </div>
         <div className="mt-4 space-y-2.5">
-          <div className="rounded-lg border border-black/[0.04] bg-[#FAFAFA] px-3.5 py-2.5">
-            <p className="text-[11px] font-medium text-secondary/60">Matched evidence</p>
+          <div className="rounded-lg border border-app-border-soft bg-app-surface px-3.5 py-2.5">
+            <p className="text-[11px] font-medium text-app-text-secondary/60">{copy.evidence}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {["SQL", "Python", "Dashboarding", "Stakeholder reports"].map((s) => (
-                <span key={s} className="rounded-full border border-green-200 bg-green-50/70 px-2 py-0.5 text-[11px] font-medium text-green-700">{s}</span>
+              {copy.evidenceChips.map((s) => (
+                <span key={s} className="rounded-full border border-green-100/80 bg-app-surface px-2 py-0.5 text-[11px] font-medium text-green-700 shadow-app-card">{s}</span>
               ))}
             </div>
           </div>
           <div className="rounded-lg border border-red-100 bg-red-50/30 px-3.5 py-2.5">
-            <p className="text-[11px] font-medium text-secondary/60">Risk</p>
-            <p className="mt-1 text-[12px] text-red-700/80">Sponsorship not mentioned</p>
+            <p className="text-[11px] font-medium text-app-text-secondary/60">{copy.risk}</p>
+            <p className="mt-1 text-[12px] text-red-700/80">{copy.riskBody}</p>
           </div>
-          <div className="rounded-lg border border-accent/[0.08] bg-[#F5F8FC] px-3.5 py-2.5">
-            <p className="text-[11px] font-medium text-secondary/60">Resume focus</p>
+          <div className="rounded-lg border border-app-accent/[0.08] bg-app-surface px-3.5 py-2.5">
+            <p className="text-[11px] font-medium text-app-text-secondary/60">{copy.focus}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {["dashboarding", "reporting automation", "business impact"].map((s) => (
-                <span key={s} className="rounded-full border border-accent/15 bg-accent-subtle/40 px-2 py-0.5 text-[11px] font-medium text-accent">{s}</span>
+              {copy.focusChips.map((s) => (
+                <span key={s} className="rounded-full border border-app-accent/15 bg-app-surface px-2 py-0.5 text-[11px] font-medium text-app-accent shadow-app-card">{s}</span>
               ))}
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-black/[0.04] bg-[#FAFAFA] px-3.5 py-2.5">
-            <p className="text-[11px] font-medium text-secondary/60">Next action</p>
-            <span className="text-[12px] font-medium text-accent">Apply with tailored resume</span>
+          <div className="flex items-center justify-between rounded-lg border border-app-border-soft bg-app-surface px-3.5 py-2.5">
+            <p className="text-[11px] font-medium text-app-text-secondary/60">{copy.next}</p>
+            <span className="text-[12px] font-medium text-app-accent">{copy.action}</span>
           </div>
         </div>
       </div>

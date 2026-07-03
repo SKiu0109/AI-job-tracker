@@ -10,11 +10,22 @@
   "scripts": {
     "dev": "next dev",
     "dev:local": "next dev --hostname 127.0.0.1 --port 3000",
+    "dev:mac": "bash scripts/start-local-app.sh",
+    "dev:mac:stop": "bash scripts/stop-local-app.sh",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "clean": "node scripts/clean-workspace.mjs",
+    "clean:deps": "node scripts/clean-workspace.mjs --deps",
+    "vercel": "vercel",
+    "supabase": "supabase"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "clsx": "^2.1.1",
     "mammoth": "^1.12.0",
     "next": "16.2.9",
@@ -30,7 +41,10 @@
     "eslint": "^9.23.0",
     "eslint-config-next": "16.2.9",
     "postcss": "^8.5.15",
+    "supabase": "^2.108.0",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vercel": "^54.18.0",
+    "vitest": "^4.1.9"
   }
 }

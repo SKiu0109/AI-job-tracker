@@ -13,7 +13,7 @@ export function Label({
   return (
     <label
       className={cn(
-        "text-sm font-semibold leading-none text-primary",
+        "text-sm font-semibold leading-none text-app-text-primary",
         className
       )}
       {...props}
@@ -21,16 +21,17 @@ export function Label({
   );
 }
 
+// Shared input base: soft macOS-style control surface.
+const inputBase =
+  "min-h-10 w-full rounded-sm bg-app-surface-solid px-3 py-2 text-sm text-app-text-primary shadow-app-card outline-none backdrop-blur-xl transition-[background-color,box-shadow,transform] duration-300 ease-[var(--app-motion-standard)] placeholder:text-app-text-tertiary hover:bg-app-surface-hover hover:shadow-app-card focus:bg-app-surface-solid focus:shadow-app-focus";
+
 export function Input({
   className,
   ...props
 }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={cn(
-        "min-h-10 w-full rounded-app border bg-tertiary px-3 py-2 text-sm text-primary outline-none transition duration-200 placeholder:text-tertiary hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-subtle",
-        className
-      )}
+      className={cn(inputBase, className)}
       {...props}
     />
   );
@@ -43,7 +44,8 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "w-full rounded-app border bg-tertiary px-3 py-2 text-sm leading-6 text-primary outline-none transition duration-200 placeholder:text-tertiary hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-subtle",
+        inputBase,
+        "leading-6",
         className
       )}
       {...props}
@@ -57,10 +59,7 @@ export function Select({
 }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={cn(
-        "min-h-10 rounded-app border bg-tertiary px-3 py-2 text-sm text-primary outline-none transition duration-200 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-subtle",
-        className
-      )}
+      className={cn(inputBase, className)}
       {...props}
     />
   );

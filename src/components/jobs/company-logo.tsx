@@ -1,7 +1,12 @@
+"use client";
+
+import Image from "next/image";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 type CompanyLogoProps = {
   company: string;
+  logoUrl?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
 };
@@ -9,13 +14,25 @@ type CompanyLogoProps = {
 const sizeClasses = {
   sm: "h-9 w-9 rounded-app text-[11px]",
   md: "h-11 w-11 rounded-app text-xs",
-  lg: "h-14 w-14 rounded-panel text-sm"
+  lg: "h-14 w-14 rounded-lg text-sm"
 };
 
 const stripeClasses = {
   sm: "bottom-1.5 left-2 right-2 h-0.5",
   md: "bottom-2 left-2.5 right-2.5 h-0.5",
   lg: "bottom-3 left-3 right-3 h-1"
+};
+
+const imagePaddingClasses = {
+  sm: "p-1",
+  md: "p-1.5",
+  lg: "p-2"
+};
+
+const imageSizes = {
+  sm: 36,
+  md: 44,
+  lg: 56
 };
 
 const knownLogos = [
@@ -61,10 +78,15 @@ const fallbackPalettes = [
 
 export function CompanyLogo({
   company,
+  logoUrl,
   size = "md",
   className
 }: CompanyLogoProps) {
+  const [failedLogoUrl, setFailedLogoUrl] = useState("");
   const profile = getCompanyLogoProfile(company);
+  const resolvedLogoUrl = logoUrl?.trim() ?? "";
+  const shouldShowImage =
+    resolvedLogoUrl.length > 0 && failedLogoUrl !== resolvedLogoUrl;
 
   return (
     <span
@@ -72,17 +94,32 @@ export function CompanyLogo({
       className={cn(
         "relative inline-flex shrink-0 items-center justify-center overflow-hidden border font-bold tracking-normal",
         sizeClasses[size],
-        profile.className,
+        shouldShowImage
+          ? "border-app-border-soft bg-app-surface text-app-text-primary"
+          : profile.className,
         className
       )}
     >
-      <span className="relative z-10">{profile.mark}</span>
-      <span
-        className={cn(
-          "absolute rounded-full bg-white/25",
-          stripeClasses[size]
-        )}
-      />
+      {shouldShowImage ? (
+        <Image
+          alt=""
+          className={cn("h-full w-full object-contain", imagePaddingClasses[size])}
+          height={imageSizes[size]}
+          onError={() => setFailedLogoUrl(resolvedLogoUrl)}
+          src={resolvedLogoUrl}
+          width={imageSizes[size]}
+        />
+      ) : (
+        <>
+          <span className="relative z-10">{profile.mark}</span>
+          <span
+            className={cn(
+              "absolute rounded-full bg-app-surface",
+              stripeClasses[size]
+            )}
+          />
+        </>
+      )}
     </span>
   );
 }

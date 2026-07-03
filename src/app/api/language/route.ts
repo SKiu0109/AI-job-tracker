@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { LANGUAGE_COOKIE_KEY } from "@/lib/i18n/constants";
 import { Language } from "@/lib/i18n/dictionary";
+import { apiHandler } from "@/lib/api/error-handler";
 
-export function GET(request: Request) {
+export const GET = apiHandler((request: Request) => {
   const url = new URL(request.url);
   const requestedLanguage = url.searchParams.get("language");
   const nextPath = getSafeNextPath(url.searchParams.get("next"));
@@ -16,7 +17,7 @@ export function GET(request: Request) {
   });
 
   return response;
-}
+});
 
 function getSafeNextPath(nextPath: string | null) {
   if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {

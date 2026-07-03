@@ -38,7 +38,16 @@ export function loadLedgerMap<V>(filePath: string): Map<string, V> {
     const raw = fs.readFileSync(filePath, "utf-8");
     const parsed = JSON.parse(raw) as Record<string, V>;
     return new Map(Object.entries(parsed));
-  } catch {
+  } catch (err) {
+    if (fs.existsSync(filePath)) {
+      console.warn(
+        "[file-persistence] Failed to load ledger:",
+        filePath,
+        (err as Error).message
+      );
+      backupCorruptFile(filePath);
+    }
+
     return new Map<string, V>();
   }
 }
@@ -47,30 +56,28 @@ export function loadLedgerMap<V>(filePath: string): Map<string, V> {
  * Persist a ledger Map to a JSON file. Silently no-ops on Vercel or on
  * write failure (best-effort persistence).
  */
-export function persistLedgerMap<V>(filePath: string, ledger: Map<string, V>): void {
-  if (!filePath) return;
+export function persistLedgerMap<V>(
+  filePath: string,
+  ledger: Map<string, V>
+): boolean {
+  if (!filePath) return true;
 
-  try {
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      writeLedgerFile(filePath, ledger);
+      return true;
+    } catch (err) {
+      lastError = err;
     }
-
-    const obj: Record<string, V> = {};
-    for (const [key, value] of ledger.entries()) {
-      obj[key] = value;
-    }
-
-    // Write to temp file then rename for atomicity
-    const tmpPath = filePath + ".tmp";
-    fs.writeFileSync(tmpPath, JSON.stringify(obj, null, 2), "utf-8");
-    fs.renameSync(tmpPath, filePath);
-  } catch (err) {
-    console.warn(
-      "[file-persistence] Failed to persist ledger:",
-      (err as Error).message
-    );
   }
+
+  console.warn(
+    "[file-persistence] Failed to persist ledger:",
+    (lastError as Error)?.message ?? String(lastError)
+  );
+  return false;
 }
 
 /**
@@ -164,7 +171,36 @@ export class PersistentMap<K extends string, V> {
 
   private commitToFile(): void {
     if (!this.dirty) return;
-    persistLedgerMap<V>(this.filePath, this.memory);
-    this.dirty = false;
+    if (persistLedgerMap<V>(this.filePath, this.memory)) {
+      this.dirty = false;
+    }
+  }
+}
+
+function writeLedgerFile<V>(filePath: string, ledger: Map<string, V>) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  const obj: Record<string, V> = {};
+  for (const [key, value] of ledger.entries()) {
+    obj[key] = value;
+  }
+
+  const tmpPath = filePath + ".tmp";
+  fs.writeFileSync(tmpPath, JSON.stringify(obj, null, 2), "utf-8");
+  fs.renameSync(tmpPath, filePath);
+}
+
+function backupCorruptFile(filePath: string) {
+  try {
+    const backupPath = `${filePath}.corrupt.${Date.now()}`;
+    fs.copyFileSync(filePath, backupPath);
+  } catch (err) {
+    console.warn(
+      "[file-persistence] Failed to back up corrupt ledger:",
+      (err as Error).message
+    );
   }
 }
